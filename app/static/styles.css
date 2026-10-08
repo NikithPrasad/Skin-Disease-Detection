@@ -87,7 +87,7 @@ p { margin: 0; text-wrap: pretty; }
 
 /* Photos */
 .hero-photo { margin: 0; position: relative; }
-.hero-photo img { width: 100%; height: auto; aspect-ratio: 5 / 4.4; object-fit: cover; object-position: 22% 50%; border-radius: 28px; display: block; box-shadow: var(--shadow); }
+.hero-photo img { width: 100%; height: auto; aspect-ratio: 5 / 4.4; object-fit: cover; object-position: 46% 40%; border-radius: 28px; display: block; box-shadow: var(--shadow); }
 .split { display: grid; grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr); gap: 64px; align-items: center; }
 .photo { margin: 0; }
 .photo img { width: 100%; height: auto; aspect-ratio: 4 / 3.2; object-fit: cover; border-radius: 28px; display: block; box-shadow: var(--shadow); }
@@ -268,7 +268,7 @@ dialog p { color: var(--ink-2); margin: 10px 0 18px; }
 }
 @media (max-width: 980px) {
   .hero-grid, .auth, .check-grid, .two-col, .split, .care-grid { grid-template-columns: 1fr; gap: 32px; }
-  .hero-photo img { aspect-ratio: 16 / 10; object-position: 30% 50%; }
+  .hero-photo img { aspect-ratio: 16 / 10; object-position: 46% 35%; }
   .reassure { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .links { display: none; }
 }
