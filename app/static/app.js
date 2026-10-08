@@ -231,15 +231,15 @@ function render(r, truth) {
   let level = care.level, headline = care.headline, why = "", steps = care.steps, treatment = care.treatment;
   if (r.melanoma_warning && r.top !== "mel") {
     const pMel = r.probs.find((p) => p.code === "mel").p;
-    level = "urgent"; headline = "Please see a doctor soon: melanoma can't be ruled out";
-    why = `Although ${info.name.toLowerCase()} is the most likely answer, the model gives melanoma a ${pct(pMel)} chance. ` +
-      `This site asks you to see a doctor whenever that chance is ${pct(m.melanoma_threshold)} or more, which in testing caught ${whole(m.test.melanoma_recall_with_warning)} of melanomas.`;
+    level = "urgent"; headline = "A melanoma can't be fully ruled out, so we'd kindly ask you to talk to a doctor";
+    why = `This is most likely ${info.name.toLowerCase()}, but there is a ${pct(pMel)} chance it could be a melanoma. Just to be safe, ` +
+      `we'd recommend having a doctor look at it. (The site suggests this whenever that chance is ${pct(m.melanoma_threshold)} or more, which in testing caught ${whole(m.test.melanoma_recall_with_warning)} of melanomas.)`;
     steps = m.classes.mel.care.steps;
   } else if (level === "selfcare" && top.p < UNSURE_BELOW) {
-    level = "doctor"; headline = "Have a doctor take a look";
-    why = "The model is not confident about this photo, so a doctor's opinion is the safe next step.";
+    level = "doctor"; headline = "We're not sure about this one, so we'd suggest asking a doctor";
+    why = "The model isn't confident about this photo. A doctor can tell you for sure.";
   }
-  const tag = level === "selfcare" ? ["ok", "Usually harmless"] : info.serious ? ["warn", "Can be serious"] : ["warn", "Get it checked"];
+  const tag = level === "selfcare" ? ["ok", "Usually harmless"] : info.serious ? ["warn", "Worth checking"] : ["warn", "Worth checking"];
 
   // 1. What it might be
   let sure = sureWords(top.p);
@@ -277,7 +277,7 @@ function render(r, truth) {
       el("h4", { text: "What you can do now" }),
       el("ol", {}, ...steps.map((s) => el("li", { text: s }))),
     ].filter(Boolean)),
-    el("div", { class: "signs" }, el("h3", { text: "See a doctor straight away if" }),
+    el("div", { class: "signs" }, el("h3", { text: "Please talk to a doctor if you notice that" }),
       el("ul", {}, ...m.urgent_signs.map((s) => el("li", { text: s })))),
   ]);
   $("care").hidden = false;
