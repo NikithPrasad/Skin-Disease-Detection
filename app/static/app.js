@@ -160,6 +160,7 @@ function waiting(text) {
   v.className = "panel verdict waiting";
   v.replaceChildren(el("div", { class: "label", text: "Result" }), el("div", { class: "big", text }));
   $("care").hidden = true;
+  $("seen").hidden = true;
   $("probs").hidden = true;
 }
 
@@ -201,26 +202,69 @@ async function check(blob, truth) {
 
 function showError(msg) { $("error").textContent = msg; $("error").hidden = false; }
 
+function sureWords(p) {
+  const how = p >= 0.7 ? "fairly sure" : p >= UNSURE_BELOW ? "somewhat sure" : "not sure";
+  return `The model is ${how} about this (${whole(p)} likely).`;
+}
+
+// The whole answer, in plain language: what it might be, what the model looked at, how it is
+// dealt with, and when to see a doctor. The melanoma warning and an unsure model both raise the
+// advice to "see a doctor", because missing a cancer is the costly mistake.
 function render(r, truth) {
-  const info = state.info.classes[r.top], top = r.probs[0];
-  // Never call a lesion "harmless" while the advice says to see a doctor
-  const checkIt = r.melanoma_warning || top.p < UNSURE_BELOW;
-  const tag = info.serious ? ["warn", "Can be serious"] : checkIt ? ["warn", "Get it checked"] : ["ok", "Usually harmless"];
+  const m = state.info, info = m.classes[r.top], care = info.care, top = r.probs[0], second = r.probs[1];
+  let level = care.level, headline = care.headline, why = "", steps = care.steps, treatment = care.treatment;
+  if (r.melanoma_warning && r.top !== "mel") {
+    const pMel = r.probs.find((p) => p.code === "mel").p;
+    level = "urgent"; headline = "Please see a doctor soon: melanoma can't be ruled out";
+    why = `Although ${info.name.toLowerCase()} is the most likely answer, the model gives melanoma a ${pct(pMel)} chance. ` +
+      `This site asks you to see a doctor whenever that chance is ${pct(m.melanoma_threshold)} or more, which in testing caught ${whole(m.test.melanoma_recall_with_warning)} of melanomas.`;
+    steps = m.classes.mel.care.steps;
+  } else if (level === "selfcare" && top.p < UNSURE_BELOW) {
+    level = "doctor"; headline = "Have a doctor take a look";
+    why = "The model is not confident about this photo, so a doctor's opinion is the safe next step.";
+  }
+  const tag = level === "selfcare" ? ["ok", "Usually harmless"] : info.serious ? ["warn", "Can be serious"] : ["warn", "Get it checked"];
+
+  // 1. What it might be
+  let sure = sureWords(top.p);
+  if (top.p < 0.7) sure += ` It could also be ${className(second.code).toLowerCase()} (${whole(second.p)}).`;
   const v = $("verdict");
   v.className = "panel verdict";
-  let sub = "";
-  if (truth) sub = truth === r.top ? "This matches the true diagnosis." : `The true diagnosis is ${className(truth)}.`;
   v.replaceChildren(...[
-    el("div", { class: "label", text: "Most likely" }),
-    el("div", { class: "big" }, info.name, el("span", { class: "confidence", text: `${pct(top.p)} confidence` }),
-      el("span", { class: "tag " + tag[0], text: tag[1] })),
-    sub && el("div", { class: "sub", text: sub }),
+    el("div", { class: "label", text: "This might be" }),
+    el("div", { class: "big" }, info.name, el("span", { class: "tag " + tag[0], text: tag[1] })),
     el("p", { class: "about", text: info.about }),
-    top.p < UNSURE_BELOW && el("p", { class: "unsure", text: `The model is unsure: no lesion type reaches 50%. The second guess is ${className(r.probs[1].code)} (${pct(r.probs[1].p)}).` }),
+    el("p", { class: "sub", text: sure }),
+    truth && el("p", { class: "sub", text: truth === r.top ? "This matches the true diagnosis of the sample." : `The true diagnosis of this sample is ${className(truth)}.` }),
   ].filter(Boolean));
 
-  renderCare(r);
+  // 2. What the model looked at
+  const img = el("img", { src: r.attention, alt: "The photo with the areas the model ignored dimmed" });
+  $("seen").replaceChildren(
+    el("figure", { class: "seen-img" }, img, el("figcaption", { text: "Bright = where the model looked. Dimmed = what it ignored." })),
+    el("div", {},
+      el("h3", { text: "What the model is looking at" }),
+      el("p", { text: "The bright area is the part of the photo that most influenced the answer. If it is not on the spot itself, the result is less trustworthy." }),
+      el("h3", { text: `What ${info.name.toLowerCase()} usually looks like` }),
+      el("p", { text: `Typically ${info.care.looks}. These are general signs; only a doctor can confirm what this is.` })));
+  $("seen").hidden = false;
 
+  // 3. What to do
+  $("care").replaceChildren(...[
+    el("div", { class: "care " + level }, ...[
+      el("h3", { text: headline }),
+      why && el("p", { class: "why", text: why }),
+      el("h4", { text: "How it is usually treated" }),
+      el("p", { class: "why", text: level === "urgent" && r.top !== "mel" ? "If it turns out to be a melanoma: " + m.classes.mel.care.treatment : treatment }),
+      el("h4", { text: "What you can do now" }),
+      el("ol", {}, ...steps.map((s) => el("li", { text: s }))),
+    ].filter(Boolean)),
+    el("div", { class: "signs" }, el("h3", { text: "See a doctor straight away if" }),
+      el("ul", {}, ...m.urgent_signs.map((s) => el("li", { text: s })))),
+  ]);
+  $("care").hidden = false;
+
+  // 4. All possibilities, folded away
   const bars = r.probs.map((p) => {
     const fill = el("span", { class: "fill" + (p.code === r.top ? " lead" : "") });
     fill.style.width = (p.p * 100).toFixed(1) + "%";
@@ -229,34 +273,10 @@ function render(r, truth) {
       el("span", {}, fill),
       el("span", { class: "val", text: pct(p.p) }));
   });
-  $("probs").replaceChildren(el("div", { class: "mhead" }, el("h3", { text: "All 7 lesion types" }), el("span", { class: "ms", text: `${r.ms} ms` })),
-    el("div", { class: "bars" }, ...bars));
+  $("probs").replaceChildren(el("details", {},
+    el("summary", {}, "All 7 possibilities", el("span", { class: "ms", text: ` checked in ${r.ms} ms` })),
+    el("div", { class: "bars" }, ...bars)));
   $("probs").hidden = false;
-}
-
-// What to do next. The lesion type decides the advice, but the melanoma warning and an unsure
-// model both push it up to "see a doctor", because missing a cancer is the costly mistake.
-function renderCare(r) {
-  const m = state.info, info = m.classes[r.top], care = info.care, top = r.probs[0];
-  let level = care.level, headline = care.headline, why = "", steps = care.steps;
-  if (r.melanoma_warning && r.top !== "mel") {
-    const pMel = r.probs.find((p) => p.code === "mel").p;
-    level = "urgent"; headline = "See a doctor soon: melanoma can't be ruled out";
-    why = `The model gives melanoma a ${pct(pMel)} chance. That is above the ${pct(m.melanoma_threshold)} level this site uses to warn, ` +
-      `which in testing caught ${whole(m.test.melanoma_recall_with_warning)} of melanomas.`;
-    steps = m.classes.mel.care.steps;
-  } else if (level === "selfcare" && top.p < UNSURE_BELOW) {
-    level = "doctor"; headline = "Have a doctor take a look";
-    why = "The model is not confident about this photo, so a doctor's opinion is the safe next step. Until then:";
-  }
-  const section = el("div", { class: "care " + level },
-    el("h3", { text: headline }),
-    why && el("p", { class: "why", text: why }),
-    el("ol", {}, ...steps.map((s) => el("li", { text: s }))));
-  $("care").replaceChildren(section,
-    el("div", { class: "signs" }, el("h3", { text: "See a doctor straight away if" }),
-      el("ul", {}, ...m.urgent_signs.map((s) => el("li", { text: s })))));
-  $("care").hidden = false;
 }
 
 // ---------- accuracy tab ----------

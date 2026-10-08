@@ -35,11 +35,12 @@
     </div>
     <figure class="preview">
       <div class="panel preview-card">
-        <div class="label">Most likely</div>
+        <div class="label">This might be</div>
         <div class="preview-title">Melanocytic nevus <span class="tag ok">Usually harmless</span></div>
-        <p class="preview-sub">An ordinary mole. 91% confidence.</p>
+        <p class="preview-sub">An ordinary mole. The model is fairly sure about this.</p>
         <div class="care selfcare">
-          <h3>Usually no treatment needed</h3>
+          <h3>No need to see a doctor unless it changes</h3>
+          <h4>What you can do now</h4>
           <ol>
             <li>Check it once a month with the ABCDE rule.</li>
             <li>Take a photo now so you can compare it later.</li>
@@ -94,7 +95,7 @@
         <ol>
           <li><span><b>Sign in</b>A free local account keeps the tool to people you let use this computer.</span></li>
           <li><span><b>Add a photo</b>A close-up dermoscopy image, lesion in the centre. Or use one of the samples.</span></li>
-          <li><span><b>Know what to do</b>The most likely lesion type, how serious it is, and clear next steps: self-care, a check-up, or seeing a doctor soon.</span></li>
+          <li><span><b>Understand the result</b>What it might be, where in the photo the model looked, how it is usually treated, and whether to see a doctor.</span></li>
         </ol>
         <p class="note">The accuracy figures and privacy details are open to everyone, no account needed.</p>
       </div>
@@ -123,6 +124,7 @@
 
       <div aria-live="polite">
         <div class="panel verdict" id="verdict"></div>
+        <div class="panel seen" id="seen" hidden></div>
         <div class="panel care-panel" id="care" hidden></div>
         <div class="panel probs" id="probs" hidden></div>
         <p class="note">A student project, not a medical diagnosis. Anyone worried about a skin lesion should see a doctor or dermatologist.</p>

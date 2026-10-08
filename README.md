@@ -10,6 +10,17 @@ written to disk, stored in a database or sent anywhere.
 The model was chosen from a fair comparison of four architectures:
 [Skin-Disease-Model-Comparison](https://github.com/NikithPrasad/Skin-Disease-Model-Comparison).
 
+## What a result shows
+
+1. **This might be...**: the most likely of 7 lesion types, in plain words, with how sure the model is.
+2. **What the model is looking at**: the photo with the areas the model ignored dimmed (Grad-CAM), next to
+   what that condition usually looks like. If the bright area is not on the spot, the answer is less trustworthy.
+3. **What to do**: how it is usually treated and what you can do now. Serious results (melanoma, the melanoma
+   warning, or an unsure model) say to see a doctor; harmless ones give self-care steps.
+4. **See a doctor straight away if...**: warning signs shown with every result.
+
+The advice is general information only (no medicines are named) and is not a diagnosis.
+
 ## Run it
 
 **Windows**
