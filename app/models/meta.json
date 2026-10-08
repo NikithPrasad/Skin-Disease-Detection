@@ -2,56 +2,89 @@
  "id": "efficientnet_b0",
  "name": "EfficientNet-B0",
  "timm_id": "efficientnet_b0.ra_in1k",
- "seed": 2,
- "params_millions": 4.02,
- "cpu_latency_ms": 28.1,
+ "classes": [
+  "akiec",
+  "bcc",
+  "bkl",
+  "df",
+  "mel",
+  "nv",
+  "vasc",
+  "healthy"
+ ],
+ "seed": 1,
+ "best_epoch": 29,
+ "seeds_trained": 2,
+ "val_macro_f1_by_seed": [
+  0.7536,
+  0.755
+ ],
  "file_mb": 8.2,
- "melanoma_threshold": 0.05261173099279404,
+ "melanoma_threshold": 0.05069533735513687,
  "target_melanoma_recall": 0.8,
+ "ood_threshold": 4899.1161338144075,
+ "ood_keep_on_validation": 0.995,
+ "general_timm_id": "efficientnet_b0.ra_in1k",
  "test": {
-  "macro_f1": 0.7218658546663738,
-  "balanced_acc": 0.7355381882181996,
-  "accuracy": 0.8478043912175649,
-  "macro_auc": 0.9409649963705953,
-  "melanoma_recall_top_answer": 0.509009009009009,
-  "melanoma_recall_with_warning": 0.7657657657657657,
-  "warning_on_non_melanoma": 0.1728395061728395,
+  "macro_f1": 0.7510300653230515,
+  "balanced_acc": 0.7497234854231059,
+  "accuracy": 0.8884057971014493,
+  "macro_auc": 0.951936490863508,
+  "melanoma_recall_top_answer": 0.5405405405405406,
+  "melanoma_recall_with_warning": 0.8198198198198198,
+  "warning_on_non_melanoma": 0.11308116627265563,
+  "lesions_called_healthy": 0.0014970059880239522,
+  "melanomas_called_healthy": 0.0,
   "per_class_recall": {
-   "akiec": 0.7727272727272727,
+   "akiec": 0.6212121212121212,
    "bcc": 0.7864077669902912,
-   "bkl": 0.7227272727272728,
-   "df": 0.6956521739130435,
-   "mel": 0.509009009009009,
-   "nv": 0.9381058911260254,
-   "vasc": 0.7241379310344828
-  }
+   "bkl": 0.740909090909091,
+   "df": 0.6521739130434783,
+   "mel": 0.5405405405405406,
+   "nv": 0.9403430275913497,
+   "vasc": 0.7241379310344828,
+   "healthy": 0.9920634920634921
+  },
+  "rejected_by_photo_check": 0.0036231884057971015
  },
  "external": {
-  "macro_f1": 0.7105000053114505,
-  "balanced_acc": 0.7057433903085766,
-  "accuracy": 0.8166776968894772,
-  "macro_auc": 0.9283029465759217,
-  "melanoma_recall_top_answer": 0.5555555555555556,
-  "melanoma_recall_with_warning": 0.8713450292397661,
-  "warning_on_non_melanoma": 0.2171641791044776,
+  "macro_f1": 0.7213729788955582,
+  "balanced_acc": 0.7083320162960259,
+  "accuracy": 0.8252812706816678,
+  "macro_auc": 0.9256880220951837,
+  "melanoma_recall_top_answer": 0.6023391812865497,
+  "melanoma_recall_with_warning": 0.847953216374269,
+  "warning_on_non_melanoma": 0.19850746268656716,
+  "lesions_called_healthy": 0.0,
+  "melanomas_called_healthy": 0.0,
   "per_class_recall": {
    "akiec": 0.6744186046511628,
-   "bcc": 0.7204301075268817,
-   "bkl": 0.7004608294930875,
-   "df": 0.6818181818181818,
-   "mel": 0.5555555555555556,
-   "nv": 0.9218061674008811,
-   "vasc": 0.6857142857142857
-  }
+   "bcc": 0.7526881720430108,
+   "bkl": 0.6820276497695853,
+   "df": 0.6590909090909091,
+   "mel": 0.6023391812865497,
+   "nv": 0.9306167400881057,
+   "vasc": 0.6571428571428571
+  },
+  "rejected_by_photo_check": 0.011912640635340834
+ },
+ "photo_check": {
+  "rejected_test_lesions": 0.00499001996007984,
+  "rejected_test_healthy": 0.0,
+  "rejected_external": 0.011912640635340834,
+  "rejected_non_skin": 1.0,
+  "non_skin_images": 45,
+  "non_skin_note": "built-in Windows wallpapers and images (landscapes, abstract art)"
  },
  "examples": {
-  "akiec": "ISIC_0025831",
+  "akiec": "ISIC_0031874",
   "bcc": "ISIC_0024949",
   "bkl": "ISIC_0025387",
   "df": "ISIC_0031443",
   "mel": "ISIC_0024967",
   "nv": "ISIC_0026515",
-  "vasc": "ISIC_0024669"
+  "vasc": "ISIC_0024669",
+  "healthy": "healthy-test-2621"
  },
- "trained_on": "HAM10000 (7,009 training images, split by lesion)"
+ "trained_on": "HAM10000 (7,009 lesion photos + 2,744 healthy-skin patches, split by lesion)"
 }

@@ -1,4 +1,4 @@
-"""Loads the trained EfficientNet-B0 and classifies an image held in memory.
+"""Loads the trained EfficientNet-B0 (7 lesion types + healthy skin) and checks an image held in memory.
 
 Images arrive as bytes, are decoded in memory and discarded after prediction; nothing
 here writes to disk.
@@ -18,7 +18,7 @@ import torch.nn.functional as F
 from PIL import Image
 
 APP = Path(__file__).resolve().parent
-CLASSES = ["akiec", "bcc", "bkl", "df", "mel", "nv", "vasc"]
+CLASSES = ["akiec", "bcc", "bkl", "df", "mel", "nv", "vasc", "healthy"]
 CACHE_SIZE, IMG = 256, 224  # same preprocessing as training
 MEAN = torch.tensor([0.485, 0.456, 0.406]).view(1, 3, 1, 1)
 STD = torch.tensor([0.229, 0.224, 0.225]).view(1, 3, 1, 1)
@@ -32,6 +32,7 @@ CLASS_INFO = {
     "mel": ("Melanoma", "The most dangerous skin cancer. Early detection matters a lot."),
     "nv": ("Melanocytic nevus", "An ordinary mole. Almost always harmless."),
     "vasc": ("Vascular lesion", "Growth made of blood vessels, such as a cherry angioma. Usually harmless."),
+    "healthy": ("Healthy skin", "No skin lesion was found in this photo."),
 }
 SERIOUS = {"mel", "bcc", "akiec"}
 
@@ -85,6 +86,14 @@ GUIDANCE = {
              "steps": ["If it bleeds after a knock, press on it with a clean cloth for 10 minutes.",
                        "Get it checked if it grows quickly or bleeds without being injured."]},
 }
+GUIDANCE["healthy"] = {
+    "level": "selfcare", "headline": "Nothing to worry about in this photo",
+    "looks": "evenly coloured skin with no raised, dark or unusual spot",
+    "treatment": "Nothing to treat.",
+    "steps": ["Look over your skin once a month, including places you don't often see, and note any new or changing spots.",
+              "Use SPF 30+ sunscreen and avoid sunburn and tanning beds.",
+              "If you were worried about a particular spot, take a close-up photo of just that spot and check it again."]}
+
 # Shown with every result: signs that mean seeing a doctor whatever the model says
 URGENT_SIGNS = [
     "It bleeds, oozes or crusts without being injured.",
@@ -138,6 +147,14 @@ class Predictor:
         state = torch.load(models_dir / "model.pt", map_location="cpu", weights_only=True)
         self.model.load_state_dict({k: v.float() if v.is_floating_point() else v for k, v in state.items()})
         self.model.eval().to(device).requires_grad_(False)
+        # "Is this a close-up skin photo?" check, see score_photo(): a general ImageNet-trained
+        # EfficientNet-B0 that knows everyday objects and scenes, plus statistics of training photos
+        self.general = timm.create_model(self.meta["general_timm_id"], pretrained=False, num_classes=0)
+        general = torch.load(models_dir / "general.pt", map_location="cpu", weights_only=True)
+        self.general.load_state_dict({k: v.float() if v.is_floating_point() else v for k, v in general.items()})
+        self.general.eval().to(device).requires_grad_(False)
+        ood = np.load(models_dir / "ood.npz")
+        self.ood = {k: ood[k] for k in ood.files}
         self.lock = threading.Lock()  # one prediction at a time keeps memory use flat
         with torch.no_grad():  # warm-up so the first real request is not slow
             self.model(torch.zeros(1, 3, IMG, IMG, device=device))
@@ -155,14 +172,20 @@ class Predictor:
             feats.requires_grad_(True)
             logits = self.model.forward_head(feats)
             probs = logits.softmax(1)[0].detach().tolist()
+            with torch.no_grad():
+                fit = self.score_photo(self.general(x)[0].cpu().numpy())
             top = max(range(len(CLASSES)), key=lambda i: probs[i])
             logits[0, top].backward()
             cam = F.relu((feats.grad.mean((2, 3), keepdim=True) * feats).sum(1))[0].detach()
             cam = (cam / cam.max()).cpu().numpy() if cam.max() > 0 else np.ones(cam.shape, np.float32)
             ms = (time.perf_counter() - t) * 1000
         del x, feats
+        if fit > self.ood["threshold"]:
+            # Too unlike the training photos (e.g. not a close-up skin photo): give no diagnosis
+            return {"rejected": True, "ms": round(ms, 1)}
         order = sorted(range(len(CLASSES)), key=lambda i: -probs[i])
         return {
+            "rejected": False,
             "top": CLASSES[order[0]],
             "ms": round(ms, 1),
             # Screening flag: melanoma probability above the threshold chosen on validation data
@@ -170,3 +193,10 @@ class Predictor:
             "probs": [{"code": CLASSES[i], "p": round(probs[i], 4)} for i in order],
             "attention": attention_image(img, cam),
         }
+
+    def score_photo(self, feature):
+        """How unlike the training photos this is: Mahalanobis distance of the general model's
+        features from those of the training photos. Higher = less like a close-up skin photo.
+        The threshold turns away ~0.5% of real validation photos."""
+        d = feature - self.ood["mean"]
+        return float(d @ self.ood["precision"] @ d)

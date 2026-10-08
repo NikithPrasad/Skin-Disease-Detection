@@ -37,7 +37,7 @@ function toast(msg) {
 }
 
 const pct = (p) => (p * 100).toFixed(p >= 0.995 || p < 0.001 ? 0 : 1) + "%";
-const whole = (p) => Math.round(p * 100) + "%";
+const whole = (p) => (p > 0 && p < 0.1 ? (p * 100).toFixed(1) : Math.round(p * 100)) + "%";  // small rates keep a decimal
 const className = (code) => state.info?.classes[code]?.name ?? code;
 
 // ---------- tabs ----------
@@ -210,7 +210,23 @@ function sureWords(p) {
 // The whole answer, in plain language: what it might be, what the model looked at, how it is
 // dealt with, and when to see a doctor. The melanoma warning and an unsure model both raise the
 // advice to "see a doctor", because missing a cancer is the costly mistake.
+function renderRejected() {
+  const v = $("verdict");
+  v.className = "panel verdict";
+  v.replaceChildren(
+    el("div", { class: "label", text: "Result" }),
+    el("div", { class: "big", text: "This doesn't look like a close-up skin photo" }),
+    el("p", { class: "about", text: "The model learned from close-up photos of skin spots taken through a skin magnifier (a dermatoscope). " +
+      "This photo is too different from those, so any answer would be a guess, and the site won't guess about your health." }),
+    el("ul", { class: "tips" },
+      el("li", { text: "Take the photo close up, with the spot in the centre and filling most of the frame." }),
+      el("li", { text: "Use good, even light, and keep the camera steady and in focus." }),
+      el("li", { text: "If a spot worries you, a doctor can check it properly with a dermatoscope." })));
+  for (const id of ["seen", "care", "probs"]) $(id).hidden = true;
+}
+
 function render(r, truth) {
+  if (r.rejected) return renderRejected();
   const m = state.info, info = m.classes[r.top], care = info.care, top = r.probs[0], second = r.probs[1];
   let level = care.level, headline = care.headline, why = "", steps = care.steps, treatment = care.treatment;
   if (r.melanoma_warning && r.top !== "mel") {
@@ -231,8 +247,8 @@ function render(r, truth) {
   const v = $("verdict");
   v.className = "panel verdict";
   v.replaceChildren(...[
-    el("div", { class: "label", text: "This might be" }),
-    el("div", { class: "big" }, info.name, el("span", { class: "tag " + tag[0], text: tag[1] })),
+    el("div", { class: "label", text: r.top === "healthy" ? "Result" : "This might be" }),
+    el("div", { class: "big" }, info.name, el("span", { class: "tag " + tag[0], text: r.top === "healthy" && level === "selfcare" ? "No lesion found" : tag[1] })),
     el("p", { class: "about", text: info.about }),
     el("p", { class: "sub", text: sure }),
     truth && el("p", { class: "sub", text: truth === r.top ? "This matches the true diagnosis of the sample." : `The true diagnosis of this sample is ${className(truth)}.` }),
@@ -244,7 +260,9 @@ function render(r, truth) {
     el("figure", { class: "seen-img" }, img, el("figcaption", { text: "Bright = where the model looked. Dimmed = what it ignored." })),
     el("div", {},
       el("h3", { text: "What the model is looking at" }),
-      el("p", { text: "The bright area is the part of the photo that most influenced the answer. If it is not on the spot itself, the result is less trustworthy." }),
+      el("p", { text: r.top === "healthy"
+        ? "The bright areas are the parts of the photo that most influenced the answer."
+        : "The bright area is the part of the photo that most influenced the answer. If it is not on the spot itself, the result is less trustworthy." }),
       el("h3", { text: `What ${info.name.toLowerCase()} usually looks like` }),
       el("p", { text: `Typically ${info.care.looks}. These are general signs; only a doctor can confirm what this is.` })));
   $("seen").hidden = false;
@@ -282,22 +300,28 @@ function render(r, truth) {
 // ---------- accuracy tab ----------
 function renderAccuracy(m) {
   const stat = (big, small) => el("div", { class: "stat" }, el("b", { text: big }), el("span", { text: small }));
+  const pc = m.photo_check;
   $("acc-stats").replaceChildren(
-    stat(m.test.macro_f1.toFixed(3), "macro F1 on 2,004 held-out HAM10000 photos (1.0 is perfect)"),
-    stat(m.external.macro_f1.toFixed(3), "macro F1 on 1,511 photos from a different collection"),
-    stat(whole(m.test.accuracy), "of test photos given the right lesion type"),
-    stat(m.test.macro_auc.toFixed(3), "ROC-AUC averaged over the 7 types (1.0 is perfect)"));
+    stat(m.test.macro_f1.toFixed(3), "macro F1 on held-out HAM10000 photos and healthy-skin patches (1.0 is perfect)"),
+    stat(m.external.macro_f1.toFixed(3), "macro F1 on 1,511 lesion photos from a different collection"),
+    stat(whole(m.test.per_class_recall.healthy), "of healthy-skin test patches correctly called healthy"),
+    stat(whole(m.test.lesions_called_healthy), "of test lesions wrongly called healthy skin"));
   $("warn-stats").replaceChildren(
     stat(whole(m.test.melanoma_recall_top_answer), "of melanomas named as the top answer"),
     stat(whole(m.test.melanoma_recall_with_warning), "of melanomas caught with the warning"),
-    stat(whole(m.test.warning_on_non_melanoma), "of other lesions get a warning too (false alarms)"));
+    stat(whole(m.test.warning_on_non_melanoma), "of other photos get a warning too (false alarms)"));
   $("warn-text").textContent = `On its own, the model's top answer catches ${whole(m.test.melanoma_recall_top_answer)} of melanomas. Missing a melanoma is far worse ` +
-    `than an unnecessary check-up, so the site also warns whenever the chance of melanoma is ${pct(m.melanoma_threshold)} or more. That level was picked on separate ` +
-    `validation photos to catch at least ${whole(m.target_melanoma_recall)} of melanomas there; the numbers here come from the test set.`;
+    `than an unnecessary check-up, so the site also warns whenever the chance of melanoma is ${pct(m.melanoma_threshold)} or more, even if the top answer is healthy skin. ` +
+    `That level was picked on separate validation photos to catch at least ${whole(m.target_melanoma_recall)} of melanomas there; the numbers here come from the test set.`;
+  $("check-stats").replaceChildren(
+    stat(whole(pc.rejected_non_skin), `of ${pc.non_skin_images} non-skin images (landscapes, abstract art) rejected`),
+    stat(whole(pc.rejected_test_lesions), "of real test lesion photos wrongly rejected"),
+    stat(whole(pc.rejected_external), "of photos from the other collection rejected"));
 
-  const head = el("tr", {}, el("th", { text: "Lesion type" }), el("th", { text: "HAM10000 test" }), el("th", { text: "ISIC 2018 test" }));
+  const head = el("tr", {}, el("th", { text: "Type" }), el("th", { text: "HAM10000 test" }), el("th", { text: "ISIC 2018 test" }));
   const rows = Object.keys(m.test.per_class_recall).map((c) => el("tr", {}, el("td", { text: className(c) }),
-    el("td", { text: whole(m.test.per_class_recall[c]) }), el("td", { text: whole(m.external.per_class_recall[c]) })));
+    el("td", { text: whole(m.test.per_class_recall[c]) }),
+    el("td", { text: c in m.external.per_class_recall ? whole(m.external.per_class_recall[c]) : "not in this set" })));
   $("recall-table").replaceChildren(el("thead", {}, head), el("tbody", {}, ...rows));
 }
 

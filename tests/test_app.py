@@ -18,6 +18,7 @@ from contextlib import closing
 from pathlib import Path
 from unittest import mock
 
+import numpy as np
 from PIL import Image, PngImagePlugin
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -270,14 +271,26 @@ class RealModelTests(ServerTests):
 
     def test_predict(self):
         cookie = self.signup()
-        for code in ["mel", "nv"]:
+        for code in ["mel", "nv", "healthy"]:
             image = (ROOT / "app" / "static" / "examples" / f"{code}.jpg").read_bytes()
             res, data = self.request("POST", "/api/predict", image, cookie=cookie)
             self.assertEqual(res.status, 200)
             r = data["results"]
+            self.assertFalse(r["rejected"], code)
             self.assertAlmostEqual(sum(p["p"] for p in r["probs"]), 1.0, places=2)
             self.assertEqual(r["top"], code)  # the samples are ones the model gets right
             self.assertTrue(r["attention"].startswith("data:image/jpeg;base64,"))  # Grad-CAM image, in memory only
+
+    def test_non_skin_photo_is_rejected(self):
+        # A blue-sky gradient with noise: nothing like a close-up skin photo
+        rng = np.random.default_rng(0)
+        sky = np.linspace([70, 130, 220], [200, 225, 250], 256)[:, None, :].repeat(256, 1)
+        img = Image.fromarray(np.uint8((sky + rng.normal(0, 6, sky.shape)).clip(0, 255)))
+        buf = io.BytesIO()
+        img.save(buf, "JPEG")
+        r = self.predictor.predict(buf.getvalue())
+        self.assertTrue(r["rejected"])
+        self.assertNotIn("top", r)  # no diagnosis at all
 
     def test_melanoma_warning_uses_threshold(self):
         image = (ROOT / "app" / "static" / "examples" / "mel.jpg").read_bytes()

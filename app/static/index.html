@@ -115,7 +115,7 @@
           <button class="btn quiet" id="clear" type="button" hidden>Remove</button>
         </div>
         <p class="mini-privacy">Not saved, not shared. The photo is only held in memory while the model looks at it.</p>
-        <p class="examples-title">Samples, one per lesion type</p>
+        <p class="examples-title">Samples, one per type, plus healthy skin</p>
         <p class="examples-sub">Test-set photos the model never trained on.</p>
         <div class="examples" id="examples"></div>
         <div class="truth" id="truth"></div>
@@ -147,6 +147,16 @@
       <div class="stats" id="warn-stats"></div>
     </div>
 
+    <div class="feature panel">
+      <div>
+        <h3>The photo check</h3>
+        <p>Before giving any answer, the site checks whether the photo looks like the close-up skin photos the model learned from.
+          If it doesn't (a normal phone snapshot, a face, an object), it says so instead of guessing. The check is set so that only
+          about 1 in 100 real lesion photos are turned away.</p>
+      </div>
+      <div class="stats" id="check-stats"></div>
+    </div>
+
     <div class="figs single">
       <figure class="fig">
         <picture><source srcset="figures/confusion_dark.png" media="(prefers-color-scheme: dark)">
@@ -163,9 +173,9 @@
     <div class="rows">
       <div><h3>Why this model</h3><p>It came out joint best of four models compared on the same data (a CNN from scratch, ResNet50, EfficientNet-B0 and MobileNetV3), caught the most melanomas on average across its training runs, and is small and fast enough for any laptop.
         Full study: <a href="https://github.com/NikithPrasad/Skin-Disease-Model-Comparison">Skin-Disease-Model-Comparison</a>.</p></div>
-      <div><h3>How it was trained</h3><p id="trained-text">HAM10000, 10,015 dermoscopy photos of 7 lesion types, split by lesion so no lesion appears in both training and testing. ImageNet-pretrained EfficientNet-B0, fine-tuned for 30 epochs with rotation, flip, zoom and colour augmentation and a class-weighted loss.</p></div>
+      <div><h3>How it was trained</h3><p id="trained-text">HAM10000: 10,015 dermoscopy photos of 7 lesion types, plus 3,916 patches of healthy skin cut from around the lesions using the dataset's lesion outlines. Everything is split by lesion, so no lesion or its surrounding skin appears in both training and testing. ImageNet-pretrained EfficientNet-B0, fine-tuned for 30 epochs with rotation, flip, zoom and colour augmentation and a class-weighted loss.</p></div>
       <div><h3>Two test sets</h3><p>2,004 held-out HAM10000 photos, and 1,511 photos from the separate ISIC 2018 test set, which checks the model copes with images from a different collection.</p></div>
-      <div><h3>Limits</h3><p>Trained on dermoscopy photos (taken through a skin magnifier), so ordinary phone photos will be less reliable. Only knows 7 lesion types. Not a medical device.</p></div>
+      <div><h3>Limits</h3><p>Trained only on dermoscopy photos (taken through a skin magnifier), including its healthy-skin examples. Ordinary phone photos are usually turned away by the photo check rather than diagnosed. It knows 7 lesion types and healthy skin, nothing else. Not a medical device.</p></div>
     </div>
   </section>
 
