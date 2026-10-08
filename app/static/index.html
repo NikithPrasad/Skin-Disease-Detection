@@ -15,6 +15,7 @@
   <div class="wrap topbar-inner">
     <a class="brand" href="#top" aria-label="SkinCheck home"><span class="brand-mark" aria-hidden="true"></span>SkinCheck</a>
     <nav class="links" aria-label="Main">
+      <a href="#how">How it works</a>
       <a href="#check">Check a concern</a>
       <a href="#reliability">How reliable is it?</a>
       <a href="#privacy">Privacy</a>
@@ -42,12 +43,9 @@
         <p class="assure-line">Your image is processed securely on this computer and is not used to identify you.</p>
       </div>
 
-      <ol class="panel journey" id="how" aria-label="How it works">
-        <li><span class="num">1</span><div><b>Upload</b><p>Add a close-up image of the skin spot you'd like to understand.</p></div></li>
-        <li><span class="num">2</span><div><b>AI analysis</b><p>The AI compares it with patterns learned from about 10,000 images, in under a second.</p></div></li>
-        <li><span class="num">3</span><div><b>Understand your result</b><p>See what it most closely matches, how confident the AI is, and what that means.</p></div></li>
-        <li><span class="num">4</span><div><b>Know what to do next</b><p>Get simple, practical next steps, including when it's worth talking to a doctor.</p></div></li>
-      </ol>
+      <figure class="hero-photo">
+        <img src="photos/smiling-woman.jpg" alt="A smiling woman with a calm, relaxed expression" width="1200" height="1510">
+      </figure>
     </div>
   </section>
 
@@ -57,6 +55,25 @@
     <div><h2>Results in simple language</h2><p>No medical jargon. Every result explains what it means and what you can do next.</p></div>
     <div><h2>Your privacy matters</h2><p>Images are checked on this computer, never saved and never sent over the internet.</p></div>
     <div><h2>One piece of information</h2><p>An AI prediction can help you prepare, but only a healthcare professional can diagnose.</p></div>
+  </section>
+
+  <!-- HOW IT WORKS -->
+  <section class="section" id="how" aria-labelledby="how-title">
+    <div class="wrap split">
+      <figure class="photo">
+        <img src="photos/magnifying-glass.jpg" alt="A woman in a cap playfully looking through a magnifying glass" width="1200" height="800" loading="lazy">
+      </figure>
+      <div>
+        <h2 class="section-title" id="how-title">How it works</h2>
+        <p class="lede narrow">Four simple steps. You stay in control the whole time.</p>
+        <ol class="journey" aria-label="How it works">
+        <li><span class="num">1</span><div><b>Upload</b><p>Add a close-up image of the skin spot you'd like to understand.</p></div></li>
+        <li><span class="num">2</span><div><b>AI analysis</b><p>The AI compares it with patterns learned from about 10,000 images, in under a second.</p></div></li>
+        <li><span class="num">3</span><div><b>Understand your result</b><p>See what it most closely matches, how confident the AI is, and what that means.</p></div></li>
+        <li><span class="num">4</span><div><b>Know what to do next</b><p>Get simple, practical next steps, including when it's worth talking to a doctor.</p></div></li>
+        </ol>
+      </div>
+    </div>
   </section>
 
   <!-- CHECK -->
@@ -157,6 +174,35 @@
     </div>
   </section>
 
+  <!-- LOOKING AFTER YOUR SKIN -->
+  <section class="section" id="care" aria-labelledby="care-title">
+    <div class="wrap">
+      <h2 class="section-title" id="care-title">Looking after your skin</h2>
+      <p class="lede narrow">Small everyday habits make a big difference, whatever your result.</p>
+      <div class="care-grid">
+        <article class="panel photo-card">
+          <img src="photos/sunscreen-suns.jpg" alt="Little suns drawn in sunscreen on someone's legs" width="1200" height="1600" loading="lazy">
+          <div class="photo-card-body">
+            <h3>Everyday care</h3>
+            <ul class="checklist">
+              <li>Use SPF 30+ sunscreen and avoid sunburn and tanning beds.</li>
+              <li>Once a month, look over your skin, including places you don't often see.</li>
+              <li>Take photos of spots you want to keep an eye on, so you can notice changes.</li>
+            </ul>
+          </div>
+        </article>
+        <article class="panel photo-card">
+          <img src="photos/doctor-chat.jpg" alt="A doctor in a white coat chatting with a patient" width="1200" height="1799" loading="lazy">
+          <div class="photo-card-body">
+            <h3>Talking to a doctor</h3>
+            <p>A doctor can look at a skin spot properly, often with a skin magnifier, and tell you for sure. It's always fine to ask, even about a spot that turns out to be nothing.</p>
+            <p>It's worth booking a visit if a spot is new, changing, bleeding, itchy or simply worrying you.</p>
+          </div>
+        </article>
+      </div>
+    </div>
+  </section>
+
   <!-- RELIABILITY -->
   <section class="section soft" id="reliability" aria-labelledby="rel-title">
     <div class="wrap">
@@ -211,7 +257,8 @@
 <footer class="footer">
   <div class="wrap">
     <p><b>This is an AI-based awareness tool, not a medical diagnosis.</b> If you are worried about your skin, please talk to a qualified healthcare professional.</p>
-    <p class="small muted">A college project. Data: HAM10000 (Tschandl et al., 2018, CC BY-NC 4.0) and the ISIC 2018 test set.</p>
+    <p class="small muted">A college project. Data: HAM10000 (Tschandl et al., 2018, CC BY-NC 4.0) and the ISIC 2018 test set.
+      Photos by Jake Nackos, Sarah Sheedy, Asal Davletyarovaasss and Nate Johnston on Unsplash.</p>
   </div>
 </footer>
 
