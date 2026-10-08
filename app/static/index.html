@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Skin Disease Detection</title>
+<meta name="description" content="Upload a dermoscopy photo of a skin lesion and an EfficientNet-B0 model suggests which of 7 lesion types it shows. Runs locally; photos are never saved.">
+<link rel="stylesheet" href="styles.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='11' fill='none' stroke='%23111113' stroke-width='7'/%3E%3C/svg%3E">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="topbar">
+  <div class="wrap">
+    <div class="brand"><span class="brand-mark" aria-hidden="true"></span>Skin Disease Detection</div>
+    <div class="account">
+      <div class="who" id="who" hidden>
+        <span class="avatar" id="avatar" aria-hidden="true"></span>
+        <span class="name" id="username"></span>
+      </div>
+      <button class="btn quiet small" id="signout" type="button" hidden>Sign out</button>
+      <button class="btn small" id="signin-top" type="button" hidden>Sign in</button>
+    </div>
+  </div>
+</header>
+
+<main id="main" class="wrap">
+  <div class="hero">
+    <div>
+      <h1>Skin disease detection from a single photo</h1>
+      <p class="lede">Upload a dermoscopy photo of a skin lesion. A trained EfficientNet-B0 model suggests which of 7 lesion types it shows.</p>
+      <p class="privacy-line"><strong>Photos are never saved.</strong> Each one is checked in this computer's memory and discarded
+        straight after. Nothing is stored in a database or sent over the internet.</p>
+    </div>
+    <figure class="mosaic">
+      <img data-code="mel" src="examples/mel.jpg" alt="Dermoscopy photo of a melanoma from the HAM10000 test set" width="600" height="450">
+      <img data-code="bcc" src="examples/bcc.jpg" alt="Dermoscopy photo of a basal cell carcinoma" width="600" height="450">
+      <img data-code="nv" src="examples/nv.jpg" alt="Dermoscopy photo of an ordinary mole" width="600" height="450">
+      <figcaption>Melanoma, basal cell carcinoma and an ordinary mole, from the HAM10000 test set.</figcaption>
+    </figure>
+  </div>
+
+  <nav class="tabs" aria-label="Sections">
+    <a href="#check" class="active" data-tab="check">Check a lesion</a>
+    <a href="#accuracy" data-tab="accuracy">How accurate is it</a>
+    <a href="#privacy" data-tab="privacy">Privacy</a>
+  </nav>
+
+  <!-- CHECK -->
+  <section class="page" id="check" aria-label="Check a lesion">
+    <!-- Signed out -->
+    <div class="auth" id="auth" hidden>
+      <div class="panel auth-card">
+        <div class="seg" role="tablist" aria-label="Sign in or create account">
+          <button type="button" role="tab" id="seg-login" aria-selected="true">Sign in</button>
+          <button type="button" role="tab" id="seg-signup" aria-selected="false">Create account</button>
+        </div>
+        <form id="auth-form" novalidate>
+          <div class="form-error" id="auth-error" role="alert" hidden></div>
+          <div class="field">
+            <label for="f-user">Username</label>
+            <input class="input" id="f-user" name="username" autocomplete="username" required minlength="3" maxlength="32" autocapitalize="none" spellcheck="false">
+            <span class="hint" id="user-hint" hidden>3 to 32 characters: letters, numbers, dot, dash or underscore.</span>
+          </div>
+          <div class="field">
+            <label for="f-pass">Password</label>
+            <div class="pw">
+              <input class="input" id="f-pass" name="password" type="password" autocomplete="current-password" required minlength="8" maxlength="256">
+              <button type="button" id="toggle-pw" aria-controls="f-pass" aria-label="Show password">Show</button>
+            </div>
+            <span class="hint" id="pass-hint" hidden>At least 8 characters.</span>
+          </div>
+          <div class="field" id="confirm-field" hidden>
+            <label for="f-pass2">Confirm password</label>
+            <input class="input" id="f-pass2" name="password2" type="password" autocomplete="new-password" maxlength="256">
+          </div>
+          <button class="btn block" id="auth-submit" type="submit">Sign in</button>
+        </form>
+        <p class="auth-note">We keep only your username and a hashed password, never your photos. The account exists on this computer only.</p>
+      </div>
+      <div class="how">
+        <h2>How it works</h2>
+        <ol>
+          <li><span><b>Sign in</b>A free local account keeps the tool to people you let use this computer.</span></li>
+          <li><span><b>Add a photo</b>A close-up dermoscopy image, lesion in the centre. Or use one of the samples.</span></li>
+          <li><span><b>Read the result</b>The most likely lesion type, how sure the model is, and a warning if melanoma can't be ruled out.</span></li>
+        </ol>
+        <p class="note">The accuracy figures and privacy details are open to everyone, no account needed.</p>
+      </div>
+    </div>
+
+    <!-- Signed in -->
+    <div class="try" id="app" hidden>
+      <div class="panel drop">
+        <div class="zone" id="zone" tabindex="0" role="button" aria-label="Upload an image: click, drop a file, or paste">
+          <div class="hint" id="hint"><strong>Drop a photo here</strong>or click to choose one. Ctrl+V pastes.</div>
+          <img id="preview" alt="The photo being checked" hidden>
+          <div class="busy" id="busy" hidden>Checking</div>
+        </div>
+        <input type="file" id="file" accept="image/*" hidden>
+        <div class="drop-actions">
+          <button class="btn" id="choose" type="button">Choose photo</button>
+          <button class="btn quiet" id="clear" type="button" hidden>Remove</button>
+        </div>
+        <p class="mini-privacy">Not saved, not shared. The photo is only held in memory while the model looks at it.</p>
+        <p class="examples-title">Samples, one per lesion type</p>
+        <p class="examples-sub">Test-set photos the model never trained on.</p>
+        <div class="examples" id="examples"></div>
+        <div class="truth" id="truth"></div>
+        <div class="error" id="error" role="alert" hidden></div>
+      </div>
+
+      <div aria-live="polite">
+        <div class="panel verdict" id="verdict"></div>
+        <div class="panel alert" id="mel-warning" hidden></div>
+        <div class="panel probs" id="probs" hidden></div>
+        <p class="note">A student project, not a medical diagnosis. Anyone worried about a skin lesion should see a doctor or dermatologist.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ACCURACY -->
+  <section class="page" id="accuracy" hidden aria-label="How accurate is it">
+    <h2>How accurate is it?</h2>
+    <p class="lede" id="acc-lede">Measured on photos the model never saw during training.</p>
+    <div class="stats acc-stats" id="acc-stats"></div>
+
+    <div class="feature panel">
+      <div>
+        <h3>The melanoma warning</h3>
+        <p id="warn-text">On its own, the model's top answer catches about half of melanomas. Missing a melanoma is far worse than an
+          unnecessary check-up, so the site also warns whenever the chance of melanoma passes a small threshold.</p>
+      </div>
+      <div class="stats" id="warn-stats"></div>
+    </div>
+
+    <div class="figs single">
+      <figure class="fig">
+        <picture><source srcset="figures/confusion_dark.png" media="(prefers-color-scheme: dark)">
+          <img src="figures/confusion.png" alt="Confusion matrix of the model on the internal test set" loading="lazy"></picture>
+        <figcaption>Confusion matrix on the internal test set. The diagonal is the share of each true lesion type the model gets right.</figcaption>
+      </figure>
+      <div>
+        <h3>Correct answers by lesion type</h3>
+        <table class="recall" id="recall-table"></table>
+        <p class="legend-note">Share of each lesion type the model names correctly (recall), on both test sets.</p>
+      </div>
+    </div>
+
+    <div class="rows">
+      <div><h3>Why this model</h3><p>It came out joint best of four models compared on the same data (a CNN from scratch, ResNet50, EfficientNet-B0 and MobileNetV3), caught the most melanomas on average across its training runs, and is small and fast enough for any laptop.
+        Full study: <a href="https://github.com/NikithPrasad/Skin-Disease-Model-Comparison">Skin-Disease-Model-Comparison</a>.</p></div>
+      <div><h3>How it was trained</h3><p id="trained-text">HAM10000, 10,015 dermoscopy photos of 7 lesion types, split by lesion so no lesion appears in both training and testing. ImageNet-pretrained EfficientNet-B0, fine-tuned for 30 epochs with rotation, flip, zoom and colour augmentation and a class-weighted loss.</p></div>
+      <div><h3>Two test sets</h3><p>2,004 held-out HAM10000 photos, and 1,511 photos from the separate ISIC 2018 test set, which checks the model copes with images from a different collection.</p></div>
+      <div><h3>Limits</h3><p>Trained on dermoscopy photos (taken through a skin magnifier), so ordinary phone photos will be less reliable. Only knows 7 lesion types. Not a medical device.</p></div>
+    </div>
+  </section>
+
+  <!-- PRIVACY -->
+  <section class="page" id="privacy" hidden aria-label="Privacy">
+    <h2>Your privacy</h2>
+    <p class="lede">Skin photos are personal, so this app is built to forget them.</p>
+    <div class="facts">
+      <div><h3>Photos are never saved</h3><p>A photo is held in memory only while the model looks at it, well under a second, and is then discarded. It is never written to disk.</p></div>
+      <div><h3>No photos in the database</h3><p>The database holds only usernames, hashed passwords and login sessions. It has no place for images, and automated tests check that none get in.</p></div>
+      <div><h3>Nothing leaves this computer</h3><p>The model runs here. No cloud service, no API, no tracking. The website only accepts connections from this computer.</p></div>
+      <div><h3>You stay in control</h3><p>Remove clears a photo from the screen. You can sign out at any time, or delete your account below.</p></div>
+    </div>
+    <div class="danger-zone" id="delete-section" hidden>
+      <h3>Delete your account</h3>
+      <p>Removes your username, password and sessions from this computer for good.</p>
+      <button class="btn quiet small" id="delete-open" type="button">Delete account</button>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">Data: HAM10000 (Tschandl et al., 2018, CC BY-NC 4.0) and the ISIC 2018 Task 3 test set. A student project for education, not for medical use.</div>
+</footer>
+
+<dialog id="delete-dialog" aria-labelledby="delete-title">
+  <form id="delete-form" method="dialog">
+    <h2 id="delete-title">Delete your account?</h2>
+    <p>This permanently removes your username, password and sessions from this computer. Enter your password to confirm.</p>
+    <div class="form-error" id="delete-error" role="alert" hidden></div>
+    <div class="field">
+      <label for="d-pass">Password</label>
+      <input class="input" id="d-pass" type="password" autocomplete="current-password" required>
+    </div>
+    <div class="dialog-actions">
+      <button class="btn quiet" type="button" id="delete-cancel">Cancel</button>
+      <button class="btn danger" type="submit" id="delete-confirm">Delete account</button>
+    </div>
+  </form>
+</dialog>
+
+<div class="toast" id="toast" role="status" hidden></div>
+<script src="app.js"></script>
+</body>
+</html>
