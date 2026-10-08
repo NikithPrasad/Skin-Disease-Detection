@@ -40,6 +40,8 @@ Designed for people who may already be worried, including older adults and non-t
 4. **When to talk to a doctor**: signs worth discussing whatever the result.
 5. Optional, folded away: where in the image the AI looked (Grad-CAM) and all possibilities.
 
+Photos: Jake Nackos, Sarah Sheedy, Asal Davletyarovaasss and Nate Johnston on [Unsplash](https://unsplash.com) (Unsplash License).
+
 Every result ends with: *"This is an AI-based prediction, not a medical diagnosis."* The guidance is
 general information only (no medicines are named).
 
