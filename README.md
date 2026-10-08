@@ -1,28 +1,47 @@
-# Skin Disease Detection
+# SkinCheck: skin concern awareness
 
-A local website that looks at a dermoscopy photo of skin and suggests which of 7 lesion types it
-shows, or that it is healthy skin, using an **EfficientNet-B0** model trained on the HAM10000 dataset. It also warns
-when melanoma can't be ruled out. Runs on any laptop: no GPU, no internet, no API key.
+A calm, simple local website that helps people understand a skin concern. Upload a close-up image of a
+skin spot and an **EfficientNet-B0** model (trained on the HAM10000 dataset) gives an AI-based indication
+of what it most closely matches, out of 7 types of skin spots or healthy skin, explained in plain
+language with practical next steps. Runs on any laptop: no GPU, no internet, no API key.
 
-**Photos are never saved.** Each upload is checked in memory and discarded straight after; nothing is
-written to disk, stored in a database or sent anywhere.
+**This is an awareness tool, not a medical diagnosis.** It never tells anyone they have a disease, and it
+never decides for them whether to see a doctor.
+
+**Images are never saved.** Each upload is analysed in memory on the same computer and discarded straight
+after; nothing is written to disk, stored in a database or sent anywhere.
 
 The model was chosen from a fair comparison of four architectures:
 [Skin-Disease-Model-Comparison](https://github.com/NikithPrasad/Skin-Disease-Model-Comparison).
 
+## Design
+
+Designed for people who may already be worried, including older adults and non-technical users:
+
+- **Light and calm**: soft neutral background, white cards, one teal-green accent; no red screens.
+  All text meets WCAG AA contrast (body text 13:1); 18px text and 52px+ buttons.
+- **Four clear steps**, shown as a progress bar: Upload, AI analysis, Your result, What to do next.
+  While the image is analysed, the page says what is happening.
+- **No medical imagery**: the interface shows no images of skin conditions. Example images are offered by
+  name only, and the "where the AI looked" view is folded away until the user asks for it.
+- **Reassurance built in**: "You're in control", "Results in simple language", "Your privacy matters",
+  "One piece of information", plus an exact, honest privacy section.
+
 ## What a result shows
 
-0. **Photo check first**: if the photo doesn't look like a close-up skin photo (a normal snapshot, a
-   face, an object), the site says so and gives no diagnosis instead of guessing.
-1. **This might be...**: the most likely of 7 lesion types, or healthy skin, in plain words, with how
-   sure the model is.
-2. **What the model is looking at**: the photo with the areas the model ignored dimmed (Grad-CAM), next to
-   what that condition usually looks like. If the bright area is not on the spot, the answer is less trustworthy.
-3. **What to do**: how it is usually treated and what you can do now. Serious results (melanoma, the melanoma
-   warning, or an unsure model) say to see a doctor; harmless ones give self-care steps.
-4. **See a doctor straight away if...**: warning signs shown with every result.
+0. **Image check first**: if the image doesn't look like a close-up of skin (a normal snapshot, a face, an
+   object), the site says so and gives no result instead of guessing.
+1. **"Your image most closely matches: ..."** with a confidence level in words (high, moderate, low).
+2. **What this means**: a short plain-language explanation of that type of skin spot.
+3. **What to do next**: for types that can need treatment, for the melanoma check, or when the AI is
+   unsure, *"Consider discussing this result with a qualified healthcare professional"* (soft blue box);
+   otherwise *"This result appears less concerning, but changes in a skin lesion should still be
+   monitored"* (soft green box). Both include practical steps, plus how it is usually managed.
+4. **When to talk to a doctor**: signs worth discussing whatever the result.
+5. Optional, folded away: where in the image the AI looked (Grad-CAM) and all possibilities.
 
-The advice is general information only (no medicines are named) and is not a diagnosis.
+Every result ends with: *"This is an AI-based prediction, not a medical diagnosis."* The guidance is
+general information only (no medicines are named).
 
 ## Run it
 

@@ -1,8 +1,11 @@
 "use strict";
 
 const $ = (id) => document.getElementById(id);
-const state = { user: null, info: null, mode: "login", previewUrl: null, requestId: 0 };
-const UNSURE_BELOW = 0.5;  // top answer under 50%: say the model is unsure
+const state = { user: null, info: null, mode: "signup", previewUrl: null, requestId: 0 };
+const UNSURE_BELOW = 0.5;   // top match under 50%: the AI is not confident
+const MIN_ANALYSIS_MS = 1100; // keep the "looking at your image" steps on screen long enough to read
+const CONSIDER = "Consider discussing this result with a qualified healthcare professional";
+const SIMILAR = "Because some skin conditions can look similar, a qualified healthcare professional can look at it properly and tell you for sure.";
 
 // ---------- helpers ----------
 function el(tag, attrs = {}, ...children) {
@@ -12,7 +15,7 @@ function el(tag, attrs = {}, ...children) {
     else if (k === "text") node.textContent = v;
     else node.setAttribute(k, v);
   }
-  for (const c of children) if (c != null) node.append(c);
+  for (const c of children) if (c != null && c !== false && c !== "") node.append(c);
   return node;
 }
 
@@ -33,23 +36,24 @@ function toast(msg) {
   const t = $("toast");
   t.textContent = msg; t.hidden = false;
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => { t.hidden = true; }, 3200);
+  toastTimer = setTimeout(() => { t.hidden = true; }, 3500);
 }
 
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const pct = (p) => (p * 100).toFixed(p >= 0.995 || p < 0.001 ? 0 : 1) + "%";
 const whole = (p) => (p > 0 && p < 0.1 ? (p * 100).toFixed(1) : Math.round(p * 100)) + "%";  // small rates keep a decimal
 const className = (code) => state.info?.classes[code]?.name ?? code;
+const lower = (code) => className(code).toLowerCase();
 
-// ---------- tabs ----------
-const TABS = ["check", "accuracy", "privacy"];
-function showTab(name) {
-  for (const a of document.querySelectorAll("nav.tabs a")) a.classList.toggle("active", a.dataset.tab === name);
-  for (const id of TABS) $(id).hidden = id !== name;
+// ---------- progress stepper ----------
+function setStep(n) {
+  for (const li of document.querySelectorAll("#stepper li")) {
+    const s = Number(li.dataset.step);
+    li.classList.toggle("done", s < n);
+    li.classList.toggle("current", s === n);
+    if (s === n) li.setAttribute("aria-current", "step"); else li.removeAttribute("aria-current");
+  }
 }
-for (const a of document.querySelectorAll("nav.tabs a")) {
-  a.addEventListener("click", (e) => { e.preventDefault(); showTab(a.dataset.tab); history.replaceState(null, "", "#" + a.dataset.tab); });
-}
-if (TABS.includes(location.hash.slice(1))) showTab(location.hash.slice(1));
 
 // ---------- account ----------
 function setUser(user) {
@@ -75,13 +79,15 @@ function setMode(mode) {
   $("confirm-field").hidden = !signup;
   $("user-hint").hidden = !signup;
   $("pass-hint").hidden = !signup;
+  document.querySelector('label[for="f-user"]').textContent = signup ? "Choose a username" : "Username";
   $("f-pass").autocomplete = signup ? "new-password" : "current-password";
   $("auth-submit").textContent = signup ? "Create account" : "Sign in";
   $("auth-error").hidden = true;
 }
 $("seg-login").onclick = () => setMode("login");
 $("seg-signup").onclick = () => setMode("signup");
-$("signin-top").onclick = () => { showTab("check"); setMode("login"); $("f-user").focus(); };
+$("signin-top").onclick = () => { setMode("login"); $("check").scrollIntoView({ behavior: "smooth" }); $("f-user").focus({ preventScroll: true }); };
+$("hero-cta").addEventListener("click", () => setTimeout(() => (state.user ? $("choose") : $("f-user")).focus({ preventScroll: true }), 400));
 
 $("toggle-pw").onclick = () => {
   const show = $("f-pass").type === "password";
@@ -96,11 +102,11 @@ $("auth-form").addEventListener("submit", async (e) => {
   e.preventDefault();
   const username = $("f-user").value.trim(), password = $("f-pass").value;
   if (state.mode === "signup") {
-    if (!/^[A-Za-z0-9_.-]{3,32}$/.test(username)) return authError("Username must be 3 to 32 characters: letters, numbers, dot, dash or underscore.");
-    if (password.length < 8) return authError("Password must be at least 8 characters.");
-    if (password !== $("f-pass2").value) return authError("The two passwords don't match.");
+    if (!/^[A-Za-z0-9_.-]{3,32}$/.test(username)) return authError("Please choose a username of 3 to 32 letters or numbers (a dot, dash or underscore is fine too).");
+    if (password.length < 8) return authError("Please choose a password of at least 8 characters.");
+    if (password !== $("f-pass2").value) return authError("The two passwords don't match. Please type them again.");
   } else if (!username || !password) {
-    return authError("Enter your username and password.");
+    return authError("Please enter your username and password.");
   }
   const btn = $("auth-submit");
   btn.disabled = true;
@@ -108,7 +114,8 @@ $("auth-form").addEventListener("submit", async (e) => {
     const data = await api(state.mode === "signup" ? "/api/signup" : "/api/login", { json: { username, password } });
     $("auth-form").reset();
     setUser(data.user);
-    toast(state.mode === "signup" ? `Account created. Welcome, ${data.user}.` : `Signed in as ${data.user}.`);
+    toast(state.mode === "signup" ? `Welcome, ${data.user}. You're ready to check an image.` : `Welcome back, ${data.user}.`);
+    $("choose").focus();
   } catch (err) {
     authError(err.message);
   } finally {
@@ -118,8 +125,8 @@ $("auth-form").addEventListener("submit", async (e) => {
 
 $("signout").onclick = async () => {
   try { await api("/api/logout", { json: {} }); } catch { /* signing out locally anyway */ }
-  setUser(null); setMode("login"); showTab("check");
-  toast("Signed out.");
+  setUser(null); setMode("login");
+  toast("You're signed out.");
 };
 
 $("delete-open").onclick = () => { $("delete-error").hidden = true; $("delete-form").reset(); $("delete-dialog").showModal(); };
@@ -130,7 +137,7 @@ $("delete-form").addEventListener("submit", async (e) => {
   try {
     await api("/api/delete-account", { json: { password: $("d-pass").value } });
     $("delete-dialog").close();
-    setUser(null); setMode("signup"); showTab("check");
+    setUser(null); setMode("signup");
     toast("Your account has been deleted.");
   } catch (err) {
     $("delete-error").textContent = err.message; $("delete-error").hidden = false;
@@ -139,7 +146,7 @@ $("delete-form").addEventListener("submit", async (e) => {
   }
 });
 
-// ---------- photo upload ----------
+// ---------- upload ----------
 const zone = $("zone"), fileInput = $("file");
 $("choose").onclick = () => fileInput.click();
 zone.onclick = () => fileInput.click();
@@ -153,185 +160,182 @@ document.addEventListener("paste", (e) => {
   const item = [...(e.clipboardData?.items || [])].find((i) => i.type.startsWith("image/"));
   if (item) check(item.getAsFile(), null);
 });
-$("clear").onclick = () => { clearPhoto(); toast("Photo removed."); };
-
-function waiting(text) {
-  const v = $("verdict");
-  v.className = "panel verdict waiting";
-  v.replaceChildren(el("div", { class: "label", text: "Result" }), el("div", { class: "big", text }));
-  $("care").hidden = true;
-  $("seen").hidden = true;
-  $("probs").hidden = true;
-}
+$("clear").onclick = () => { clearPhoto(); toast("Image removed."); };
 
 function clearPhoto() {
   state.requestId++;  // ignore any result still on its way
   if (state.previewUrl) URL.revokeObjectURL(state.previewUrl);
   state.previewUrl = null;
   $("preview").removeAttribute("src"); $("preview").hidden = true;
-  $("hint").hidden = false; $("busy").hidden = true; $("clear").hidden = true;
+  $("hint").hidden = false; $("clear").hidden = true;
   $("truth").textContent = ""; $("error").hidden = true;
-  waiting("Add a photo to see the result here.");
-}
-
-async function check(blob, truth) {
-  if (!blob.type.startsWith("image/")) { showError("Please choose an image file (JPG or PNG)."); return; }
-  if (blob.size > 20 * 1024 * 1024) { showError("That image is over 20 MB. Please choose a smaller one."); return; }
-  const id = ++state.requestId;
-  $("error").hidden = true;
-  if (state.previewUrl) URL.revokeObjectURL(state.previewUrl);
-  state.previewUrl = URL.createObjectURL(blob);
-  $("preview").src = state.previewUrl; $("preview").hidden = false; $("hint").hidden = true;
-  $("busy").hidden = false; $("clear").hidden = false;
-  waiting("Checking the photo");
-  $("truth").textContent = "";
-  if (truth) $("truth").append("True diagnosis: ", el("b", { text: className(truth) }));
-  try {
-    const data = await api("/api/predict", { body: blob });
-    if (id !== state.requestId) return;
-    render(data.results, truth);
-  } catch (err) {
-    if (id !== state.requestId) return;
-    if (err.status === 401) { setUser(null); toast("Your session ended. Please sign in again."); return; }
-    waiting("Add a photo to see the result here.");
-    showError(err.message);
-  } finally {
-    if (id === state.requestId) $("busy").hidden = true;
-  }
+  $("placeholder").hidden = false; $("analysing").hidden = true; $("result").hidden = true;
+  setStep(1);
 }
 
 function showError(msg) { $("error").textContent = msg; $("error").hidden = false; }
 
-function sureWords(p) {
-  const how = p >= 0.7 ? "fairly sure" : p >= UNSURE_BELOW ? "somewhat sure" : "not sure";
-  return `The model is ${how} about this (${whole(p)} likely).`;
+async function showProgress(id) {
+  const items = [...document.querySelectorAll(".progress-list li")];
+  items.forEach((li) => li.classList.remove("active", "done"));
+  for (const li of items) {
+    if (id !== state.requestId) return;
+    li.classList.add("active");
+    await sleep(MIN_ANALYSIS_MS / items.length);
+    li.classList.replace("active", "done");
+  }
 }
 
-// The whole answer, in plain language: what it might be, what the model looked at, how it is
-// dealt with, and when to see a doctor. The melanoma warning and an unsure model both raise the
-// advice to "see a doctor", because missing a cancer is the costly mistake.
+async function check(blob, truth) {
+  if (!blob.type.startsWith("image/")) { showError("Please choose an image file, such as a JPG or PNG photo."); return; }
+  if (blob.size > 20 * 1024 * 1024) { showError("That image is larger than 20 MB. Please choose a smaller one."); return; }
+  const id = ++state.requestId;
+  $("error").hidden = true;
+  if (state.previewUrl) URL.revokeObjectURL(state.previewUrl);
+  state.previewUrl = URL.createObjectURL(blob);
+  $("preview").src = state.previewUrl; $("preview").hidden = false; $("hint").hidden = true; $("clear").hidden = false;
+  $("truth").textContent = truth ? `Example image. The confirmed answer is: ${className(truth)}.` : "";
+  $("placeholder").hidden = true; $("result").hidden = true; $("analysing").hidden = false;
+  setStep(2);
+  try {
+    const [data] = await Promise.all([api("/api/predict", { body: blob }), showProgress(id)]);
+    if (id !== state.requestId) return;
+    $("analysing").hidden = true;
+    if (data.results.rejected) renderRejected(); else render(data.results, truth);
+    setStep(data.results.rejected ? 1 : 4);
+    $("result").hidden = false;
+    $("result").focus({ preventScroll: true });
+    $("result").scrollIntoView({ behavior: "smooth", block: "start" });
+  } catch (err) {
+    if (id !== state.requestId) return;
+    if (err.status === 401) { setUser(null); toast("Your session ended. Please sign in again."); return; }
+    $("analysing").hidden = true; $("placeholder").hidden = false; setStep(1);
+    showError(err.message);
+  }
+}
+
+function anotherImageButton() {
+  const b = el("button", { class: "btn ghost big", type: "button", text: "Check another image" });
+  b.onclick = () => { clearPhoto(); $("upload-card").scrollIntoView({ behavior: "smooth", block: "start" }); $("choose").focus({ preventScroll: true }); };
+  return el("div", { class: "result-actions" }, b);
+}
+
 function renderRejected() {
-  const v = $("verdict");
-  v.className = "panel verdict";
-  v.replaceChildren(
-    el("div", { class: "label", text: "Result" }),
-    el("div", { class: "big", text: "This doesn't look like a close-up skin photo" }),
-    el("p", { class: "about", text: "The model learned from close-up photos of skin spots taken through a skin magnifier (a dermatoscope). " +
-      "This photo is too different from those, so any answer would be a guess, and the site won't guess about your health." }),
-    el("ul", { class: "tips" },
-      el("li", { text: "Take the photo close up, with the spot in the centre and filling most of the frame." }),
-      el("li", { text: "Use good, even light, and keep the camera steady and in focus." }),
-      el("li", { text: "If a spot worries you, a doctor can check it properly with a dermatoscope." })));
-  for (const id of ["seen", "care", "probs"]) $(id).hidden = true;
+  $("result").replaceChildren(
+    el("p", { class: "match-label", text: "We couldn't analyse this image" }),
+    el("h3", { class: "match-name", text: "This doesn't look like a close-up of skin" }),
+    el("p", { class: "muted", text: "The AI learned from close-up images of skin spots, like those taken in a skin clinic. This image looks different, so rather than guess, we've stopped here." }),
+    el("div", { class: "block" }, el("h3", { text: "For a better result" }),
+      el("ul", { class: "tips" },
+        el("li", { text: "Take the image close up, with the skin spot in the middle and filling most of the picture." }),
+        el("li", { text: "Use good, even light and keep the camera steady and in focus." }),
+        el("li", { text: "If a spot is worrying you, a doctor can examine it properly with a skin magnifier." }))),
+    anotherImageButton());
+}
+
+// ---------- result ----------
+function confidence(p) {
+  const level = p >= 0.7 ? ["High", 3] : p >= UNSURE_BELOW ? ["Moderate", 2] : ["Low", 1];
+  const meter = el("span", { class: "meter", "aria-hidden": "true" }, ...[1, 2, 3].map((i) => el("span", { class: i <= level[1] ? "on" : "" })));
+  return el("span", { class: "chip neutral" }, meter, `${level[0]} confidence (${whole(p)})`);
 }
 
 function render(r, truth) {
-  if (r.rejected) return renderRejected();
   const m = state.info, info = m.classes[r.top], care = info.care, top = r.probs[0], second = r.probs[1];
-  let level = care.level, headline = care.headline, why = "", steps = care.steps, treatment = care.treatment;
+  const healthy = r.top === "healthy";
+  let concern = care.level !== "selfcare", why = "", steps = care.steps, treatment = care.treatment;
   if (r.melanoma_warning && r.top !== "mel") {
     const pMel = r.probs.find((p) => p.code === "mel").p;
-    level = "urgent"; headline = "A melanoma can't be fully ruled out, so we'd kindly ask you to talk to a doctor";
-    why = `This is most likely ${info.name.toLowerCase()}, but there is a ${pct(pMel)} chance it could be a melanoma. Just to be safe, ` +
-      `we'd recommend having a doctor look at it. (The site suggests this whenever that chance is ${pct(m.melanoma_threshold)} or more, which in testing caught ${whole(m.test.melanoma_recall_with_warning)} of melanomas.)`;
+    concern = true;
+    why = `It most closely matches ${lower(r.top)}, but it also shares some features with melanoma (${whole(pMel)} match).`;
     steps = m.classes.mel.care.steps;
-  } else if (level === "selfcare" && top.p < UNSURE_BELOW) {
-    level = "doctor"; headline = "We're not sure about this one, so we'd suggest asking a doctor";
-    why = "The model isn't confident about this photo. A doctor can tell you for sure.";
+    treatment = m.classes.mel.care.treatment;
+  } else if (!concern && top.p < UNSURE_BELOW) {
+    concern = true;
+    why = `The AI isn't confident about this image. It could also be ${lower(second.code)} (${whole(second.p)} match).`;
   }
-  const tag = level === "selfcare" ? ["ok", "Usually harmless"] : info.serious ? ["warn", "Worth checking"] : ["warn", "Worth checking"];
 
-  // 1. What it might be
-  let sure = sureWords(top.p);
-  if (top.p < 0.7) sure += ` It could also be ${className(second.code).toLowerCase()} (${whole(second.p)}).`;
-  const v = $("verdict");
-  v.className = "panel verdict";
-  v.replaceChildren(...[
-    el("div", { class: "label", text: r.top === "healthy" ? "Result" : "This might be" }),
-    el("div", { class: "big" }, info.name, el("span", { class: "tag " + tag[0], text: r.top === "healthy" && level === "selfcare" ? "No lesion found" : tag[1] })),
-    el("p", { class: "about", text: info.about }),
-    el("p", { class: "sub", text: sure }),
-    truth && el("p", { class: "sub", text: truth === r.top ? "This matches the true diagnosis of the sample." : `The true diagnosis of this sample is ${className(truth)}.` }),
-  ].filter(Boolean));
+  const chip = concern ? el("span", { class: "chip info", text: "Worth discussing with a professional" })
+    : healthy ? el("span", { class: "chip ok", text: "No skin spot found" })
+    : el("span", { class: "chip ok", text: "Appears less concerning" });
 
-  // 2. What the model looked at
-  const img = el("img", { src: r.attention, alt: "The photo with the areas the model ignored dimmed" });
-  $("seen").replaceChildren(
-    el("figure", { class: "seen-img" }, img, el("figcaption", { text: "Bright = where the model looked. Dimmed = what it ignored." })),
-    el("div", {},
-      el("h3", { text: "What the model is looking at" }),
-      el("p", { text: r.top === "healthy"
-        ? "The bright areas are the parts of the photo that most influenced the answer."
-        : "The bright area is the part of the photo that most influenced the answer. If it is not on the spot itself, the result is less trustworthy." }),
-      el("h3", { text: `What ${info.name.toLowerCase()} usually looks like` }),
-      el("p", { text: `Typically ${info.care.looks}. These are general signs; only a doctor can confirm what this is.` })));
-  $("seen").hidden = false;
+  const next = el("div", { class: "next " + (concern ? "info" : "ok") },
+    el("h3", { text: concern ? CONSIDER : care.headline }),
+    concern ? el("p", { text: [why, SIMILAR].filter(Boolean).join(" ") }) : null,
+    el("p", {}, el("b", { text: "What you can do now" })),
+    el("ol", { class: "steps" }, ...steps.map((s) => el("li", { text: s }))));
 
-  // 3. What to do
-  $("care").replaceChildren(...[
-    el("div", { class: "care " + level }, ...[
-      el("h3", { text: headline }),
-      why && el("p", { class: "why", text: why }),
-      el("h4", { text: "How it is usually treated" }),
-      el("p", { class: "why", text: level === "urgent" && r.top !== "mel" ? "If it turns out to be a melanoma: " + m.classes.mel.care.treatment : treatment }),
-      el("h4", { text: "What you can do now" }),
-      el("ol", {}, ...steps.map((s) => el("li", { text: s }))),
-    ].filter(Boolean)),
-    el("div", { class: "signs" }, el("h3", { text: "Please talk to a doctor if you notice that" }),
-      el("ul", {}, ...m.urgent_signs.map((s) => el("li", { text: s })))),
-  ]);
-  $("care").hidden = false;
-
-  // 4. All possibilities, folded away
   const bars = r.probs.map((p) => {
     const fill = el("span", { class: "fill" + (p.code === r.top ? " lead" : "") });
     fill.style.width = (p.p * 100).toFixed(1) + "%";
-    return el("div", { class: "bar" },
-      el("span", { class: "lab", title: className(p.code), text: className(p.code) }),
-      el("span", {}, fill),
-      el("span", { class: "val", text: pct(p.p) }));
+    return el("div", { class: "bar" }, el("span", { class: "lab", text: className(p.code) }),
+      el("span", { class: "track" }, fill), el("span", { class: "val", text: pct(p.p) }));
   });
-  $("probs").replaceChildren(el("details", {},
-    el("summary", {}, "All 7 possibilities", el("span", { class: "ms", text: ` checked in ${r.ms} ms` })),
-    el("div", { class: "bars" }, ...bars)));
-  $("probs").hidden = false;
+
+  $("result").replaceChildren(...[
+    el("p", { class: "match-label", text: "Your image most closely matches" }),
+    el("h3", { class: "match-name", text: info.name }),
+    el("div", { class: "chips" }, chip, confidence(top.p)),
+    truth ? el("p", { class: "truth", text: truth === r.top ? "This matches the confirmed answer for this example." : `The confirmed answer for this example is ${className(truth)}.` }) : null,
+
+    el("div", { class: "block" }, el("h3", { text: "What this means" }),
+      el("p", { text: info.about }),
+      healthy ? null : el("p", { text: `It typically looks like ${care.looks}. These are general signs, not something the AI measured.` })),
+
+    next,
+
+    healthy ? null : el("div", { class: "block" }, el("h3", { text: "How it's usually managed" }), el("p", { text: treatment })),
+
+    el("div", { class: "block" }, el("h3", { text: "When to talk to a doctor" }),
+      el("p", { text: "Whatever the result, it's worth talking to a doctor if a skin spot:" }),
+      el("ul", { class: "signs" }, ...m.urgent_signs.map((s) => el("li", { text: s.replace(/^It /, "") })))),
+
+    el("details", { class: "fold" }, el("summary", { text: "See where the AI looked" }),
+      el("div", { class: "seen" },
+        el("img", { src: r.attention, alt: "Your image, with the areas the AI paid less attention to dimmed" }),
+        el("div", {},
+          el("p", { text: "The brighter area is the part of your image that most influenced the result. The rest is dimmed." }),
+          el("p", { text: "If the bright area isn't on the skin spot itself, the result is less reliable." })))),
+
+    el("details", { class: "fold" }, el("summary", { text: "See all possibilities" }),
+      el("div", { class: "bars" }, ...bars)),
+
+    el("p", { class: "disclaimer" }, el("b", { text: "This is an AI-based prediction, not a medical diagnosis. " }),
+      "An AI prediction is only one piece of information. You're always welcome to ask a doctor about any skin concern."),
+    anotherImageButton(),
+  ].filter(Boolean));
 }
 
-// ---------- accuracy tab ----------
+// ---------- reliability ----------
 function renderAccuracy(m) {
   const stat = (big, small) => el("div", { class: "stat" }, el("b", { text: big }), el("span", { text: small }));
   const pc = m.photo_check;
   $("acc-stats").replaceChildren(
-    stat(m.test.macro_f1.toFixed(3), "macro F1 on held-out HAM10000 photos and healthy-skin patches (1.0 is perfect)"),
-    stat(m.external.macro_f1.toFixed(3), "macro F1 on 1,511 lesion photos from a different collection"),
-    stat(whole(m.test.per_class_recall.healthy), "of healthy-skin test patches correctly called healthy"),
-    stat(whole(m.test.lesions_called_healthy), "of test lesions wrongly called healthy skin"));
+    stat(whole(m.test.accuracy), "of test images were matched to the confirmed answer"),
+    stat(whole(m.test.melanoma_recall_with_warning), "of melanomas were flagged as worth discussing with a professional"),
+    stat(whole(pc.rejected_non_skin), "of non-skin images were recognised and not analysed"));
   $("warn-stats").replaceChildren(
-    stat(whole(m.test.melanoma_recall_top_answer), "of melanomas named as the top answer"),
-    stat(whole(m.test.melanoma_recall_with_warning), "of melanomas caught with the warning"),
-    stat(whole(m.test.warning_on_non_melanoma), "of other photos get a warning too (false alarms)"));
-  $("warn-text").textContent = `On its own, the model's top answer catches ${whole(m.test.melanoma_recall_top_answer)} of melanomas. Missing a melanoma is far worse ` +
-    `than an unnecessary check-up, so the site also warns whenever the chance of melanoma is ${pct(m.melanoma_threshold)} or more, even if the top answer is healthy skin. ` +
-    `That level was picked on separate validation photos to catch at least ${whole(m.target_melanoma_recall)} of melanomas there; the numbers here come from the test set.`;
+    stat(whole(m.test.melanoma_recall_top_answer), "named as the closest match"),
+    stat(whole(m.test.melanoma_recall_with_warning), "flagged, including shared features"),
+    stat(whole(m.test.warning_on_non_melanoma), "of other images also flagged, to be safe"));
+  $("warn-text").textContent = `Melanoma can look like other skin spots. So as well as the closest match, the AI flags any image that shares even a few features with melanoma ` +
+    `(${pct(m.melanoma_threshold)} or more) as worth discussing with a professional. It's better to be careful.`;
   $("check-stats").replaceChildren(
-    stat(whole(pc.rejected_non_skin), `of ${pc.non_skin_images} non-skin images (landscapes, abstract art) rejected`),
-    stat(whole(pc.rejected_test_lesions), "of real test lesion photos wrongly rejected"),
-    stat(whole(pc.rejected_external), "of photos from the other collection rejected"));
+    stat(whole(pc.rejected_non_skin), `of ${pc.non_skin_images} non-skin images set aside`),
+    stat(whole(pc.rejected_test_lesions), "of real skin images set aside by mistake"));
 
-  const head = el("tr", {}, el("th", { text: "Type" }), el("th", { text: "HAM10000 test" }), el("th", { text: "ISIC 2018 test" }));
+  const head = el("tr", {}, el("th", { text: "Type" }), el("th", { text: "Test set 1" }), el("th", { text: "Test set 2" }));
   const rows = Object.keys(m.test.per_class_recall).map((c) => el("tr", {}, el("td", { text: className(c) }),
     el("td", { text: whole(m.test.per_class_recall[c]) }),
-    el("td", { text: c in m.external.per_class_recall ? whole(m.external.per_class_recall[c]) : "not in this set" })));
+    el("td", { text: c in m.external.per_class_recall ? whole(m.external.per_class_recall[c]) : "not tested" })));
   $("recall-table").replaceChildren(el("thead", {}, head), el("tbody", {}, ...rows));
 }
 
-// ---------- examples ----------
+// ---------- examples (shown as names, not pictures) ----------
 function renderExamples(info) {
-  // ?v= changes whenever a different photo is exported, so browsers never show a stale cached sample
   const src = (code) => `examples/${code}.jpg?v=${info.examples?.[code] ?? ""}`;
   for (const code of Object.keys(info.classes)) {
-    const b = el("button", { class: "ex", type: "button", title: info.classes[code].name, "aria-label": `Try a sample ${info.classes[code].name} photo` },
-      el("img", { src: src(code), alt: "" }));
+    const b = el("button", { type: "button", text: info.classes[code].name });
     b.onclick = async () => check(await (await fetch(src(code))).blob(), code);
     $("examples").append(b);
   }
@@ -344,9 +348,10 @@ function renderExamples(info) {
     state.info = info;
     renderAccuracy(info);
     renderExamples(info);
+    setMode("signup");
     setUser(me.user);
   } catch {
     $("auth").hidden = false;
-    authError("Can't reach the app server. Make sure run.bat (or python app/server.py) is still running.");
+    authError("We can't reach the app right now. Please make sure run.bat (or python app/server.py) is still running.");
   }
 })();

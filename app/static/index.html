@@ -3,215 +3,229 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Skin Disease Detection</title>
-<meta name="description" content="Upload a dermoscopy photo of a skin lesion and an EfficientNet-B0 model suggests which of 7 lesion types it shows. Runs locally; photos are never saved.">
+<title>SkinCheck: understand your skin concern</title>
+<meta name="description" content="Upload an image of a skin concern to get an AI-based indication of what it may resemble, explained in simple language, with guidance on what to do next. Not a medical diagnosis.">
 <link rel="stylesheet" href="styles.css">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='11' fill='none' stroke='%23111113' stroke-width='7'/%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%230f6e66'/%3E%3Ccircle cx='16' cy='16' r='7' fill='none' stroke='white' stroke-width='3.5'/%3E%3C/svg%3E">
 </head>
 <body>
 <a class="skip" href="#main">Skip to content</a>
 
 <header class="topbar">
-  <div class="wrap">
-    <div class="brand"><span class="brand-mark" aria-hidden="true"></span>Skin Disease Detection</div>
+  <div class="wrap topbar-inner">
+    <a class="brand" href="#top" aria-label="SkinCheck home"><span class="brand-mark" aria-hidden="true"></span>SkinCheck</a>
+    <nav class="links" aria-label="Main">
+      <a href="#check">Check a concern</a>
+      <a href="#reliability">How reliable is it?</a>
+      <a href="#privacy">Privacy</a>
+    </nav>
     <div class="account">
-      <div class="who" id="who" hidden>
-        <span class="avatar" id="avatar" aria-hidden="true"></span>
-        <span class="name" id="username"></span>
-      </div>
-      <button class="btn quiet small" id="signout" type="button" hidden>Sign out</button>
-      <button class="btn small" id="signin-top" type="button" hidden>Sign in</button>
+      <span class="who" id="who" hidden><span class="avatar" id="avatar" aria-hidden="true"></span><span class="name" id="username"></span></span>
+      <button class="btn ghost" id="signout" type="button" hidden>Sign out</button>
+      <button class="btn ghost" id="signin-top" type="button" hidden>Sign in</button>
     </div>
   </div>
 </header>
 
-<main id="main" class="wrap">
-  <div class="hero">
-    <div>
-      <h1>Skin disease detection from a single photo</h1>
-      <p class="lede">Upload a dermoscopy photo of a skin lesion. You get the most likely type and clear advice on what to do next.</p>
-      <p class="privacy-line"><strong>Photos are never saved.</strong> Each one is checked in this computer's memory and discarded
-        straight after. Nothing is stored in a database or sent over the internet.</p>
-    </div>
-    <figure class="preview">
-      <div class="panel preview-card">
-        <div class="label">This might be</div>
-        <div class="preview-title">Melanocytic nevus <span class="tag ok">Usually harmless</span></div>
-        <p class="preview-sub">An ordinary mole. The model is fairly sure about this.</p>
-        <div class="care selfcare">
-          <h3>No need to see a doctor unless it changes</h3>
-          <h4>What you can do now</h4>
-          <ol>
-            <li>Check it once a month with the ABCDE rule.</li>
-            <li>Take a photo now so you can compare it later.</li>
-            <li>Use sunscreen and avoid sunburn.</li>
-          </ol>
+<main id="main">
+  <!-- WELCOME -->
+  <section class="hero" id="top">
+    <div class="wrap hero-grid">
+      <div>
+        <h1>Understand your skin concern with confidence</h1>
+        <p class="lede">Upload an image to get an AI-based indication of what the skin lesion may resemble. We'll explain the
+          result in simple language and help you understand what to do next.</p>
+        <div class="hero-actions">
+          <a class="btn primary big" href="#check" id="hero-cta">Check a skin concern</a>
+          <a class="text-link" href="#how">See how it works</a>
         </div>
+        <p class="assure-line">Your image is processed securely on this computer and is not used to identify you.</p>
       </div>
-      <figcaption>An example result. Every check ends with what to do next, from self-care to talking to a doctor.</figcaption>
-    </figure>
-  </div>
 
-  <nav class="tabs" aria-label="Sections">
-    <a href="#check" class="active" data-tab="check">Check a lesion</a>
-    <a href="#accuracy" data-tab="accuracy">How accurate is it</a>
-    <a href="#privacy" data-tab="privacy">Privacy</a>
-  </nav>
+      <ol class="panel journey" id="how" aria-label="How it works">
+        <li><span class="num">1</span><div><b>Upload</b><p>Add a close-up image of the skin spot you'd like to understand.</p></div></li>
+        <li><span class="num">2</span><div><b>AI analysis</b><p>The AI compares it with patterns learned from about 10,000 images, in under a second.</p></div></li>
+        <li><span class="num">3</span><div><b>Understand your result</b><p>See what it most closely matches, how confident the AI is, and what that means.</p></div></li>
+        <li><span class="num">4</span><div><b>Know what to do next</b><p>Get simple, practical next steps, including when it's worth talking to a doctor.</p></div></li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- REASSURANCE -->
+  <section class="wrap reassure" aria-label="Our promises">
+    <div><h2>You're in control</h2><p>You choose what to upload, and you can remove an image or delete your account at any time.</p></div>
+    <div><h2>Results in simple language</h2><p>No medical jargon. Every result explains what it means and what you can do next.</p></div>
+    <div><h2>Your privacy matters</h2><p>Images are checked on this computer, never saved and never sent over the internet.</p></div>
+    <div><h2>One piece of information</h2><p>An AI prediction can help you prepare, but only a healthcare professional can diagnose.</p></div>
+  </section>
 
   <!-- CHECK -->
-  <section class="page" id="check" aria-label="Check a lesion">
-    <!-- Signed out -->
-    <div class="auth" id="auth" hidden>
-      <div class="panel auth-card">
-        <div class="seg" role="tablist" aria-label="Sign in or create account">
-          <button type="button" role="tab" id="seg-login" aria-selected="true">Sign in</button>
-          <button type="button" role="tab" id="seg-signup" aria-selected="false">Create account</button>
-        </div>
-        <form id="auth-form" novalidate>
-          <div class="form-error" id="auth-error" role="alert" hidden></div>
-          <div class="field">
-            <label for="f-user">Username</label>
-            <input class="input" id="f-user" name="username" autocomplete="username" required minlength="3" maxlength="32" autocapitalize="none" spellcheck="false">
-            <span class="hint" id="user-hint" hidden>3 to 32 characters: letters, numbers, dot, dash or underscore.</span>
+  <section class="section" id="check" aria-labelledby="check-title">
+    <div class="wrap">
+      <h2 class="section-title" id="check-title">Check a skin concern</h2>
+
+      <ol class="stepper" id="stepper" aria-label="Progress">
+        <li data-step="1" class="current"><span class="num">1</span>Upload</li>
+        <li data-step="2"><span class="num">2</span>AI analysis</li>
+        <li data-step="3"><span class="num">3</span>Your result</li>
+        <li data-step="4"><span class="num">4</span>What to do next</li>
+      </ol>
+
+      <!-- Signed out -->
+      <div class="auth" id="auth" hidden>
+        <div class="panel auth-card">
+          <h3 class="card-title">Create a free account to start</h3>
+          <p class="muted">Your account stays on this computer. It only keeps your username and a protected password.</p>
+          <div class="seg" role="tablist" aria-label="Sign in or create account">
+            <button type="button" role="tab" id="seg-signup" aria-selected="true">Create account</button>
+            <button type="button" role="tab" id="seg-login" aria-selected="false">I have an account</button>
           </div>
-          <div class="field">
-            <label for="f-pass">Password</label>
-            <div class="pw">
-              <input class="input" id="f-pass" name="password" type="password" autocomplete="current-password" required minlength="8" maxlength="256">
-              <button type="button" id="toggle-pw" aria-controls="f-pass" aria-label="Show password">Show</button>
+          <form id="auth-form" novalidate>
+            <div class="form-error" id="auth-error" role="alert" hidden></div>
+            <div class="field">
+              <label for="f-user">Choose a username</label>
+              <input class="input" id="f-user" name="username" autocomplete="username" required minlength="3" maxlength="32" autocapitalize="none" spellcheck="false">
+              <span class="hint" id="user-hint">3 to 32 letters or numbers. You can also use a dot, dash or underscore.</span>
             </div>
-            <span class="hint" id="pass-hint" hidden>At least 8 characters.</span>
-          </div>
-          <div class="field" id="confirm-field" hidden>
-            <label for="f-pass2">Confirm password</label>
-            <input class="input" id="f-pass2" name="password2" type="password" autocomplete="new-password" maxlength="256">
-          </div>
-          <button class="btn block" id="auth-submit" type="submit">Sign in</button>
-        </form>
-        <p class="auth-note">We keep only your username and a hashed password, never your photos. The account exists on this computer only.</p>
-      </div>
-      <div class="how">
-        <h2>How it works</h2>
-        <ol>
-          <li><span><b>Sign in</b>A free local account keeps the tool to people you let use this computer.</span></li>
-          <li><span><b>Add a photo</b>A close-up dermoscopy image, lesion in the centre. Or use one of the samples.</span></li>
-          <li><span><b>Understand the result</b>What it might be, where in the photo the model looked, how it is usually treated, and whether it's worth talking to a doctor.</span></li>
-        </ol>
-        <p class="note">The accuracy figures and privacy details are open to everyone, no account needed.</p>
-      </div>
-    </div>
-
-    <!-- Signed in -->
-    <div class="try" id="app" hidden>
-      <div class="panel drop">
-        <div class="zone" id="zone" tabindex="0" role="button" aria-label="Upload an image: click, drop a file, or paste">
-          <div class="hint" id="hint"><strong>Drop a photo here</strong>or click to choose one. Ctrl+V pastes.</div>
-          <img id="preview" alt="The photo being checked" hidden>
-          <div class="busy" id="busy" hidden>Checking</div>
+            <div class="field">
+              <label for="f-pass">Password</label>
+              <div class="pw">
+                <input class="input" id="f-pass" name="password" type="password" autocomplete="new-password" required minlength="8" maxlength="256">
+                <button type="button" id="toggle-pw" aria-controls="f-pass" aria-label="Show password">Show</button>
+              </div>
+              <span class="hint" id="pass-hint">At least 8 characters.</span>
+            </div>
+            <div class="field" id="confirm-field">
+              <label for="f-pass2">Type the password again</label>
+              <input class="input" id="f-pass2" name="password2" type="password" autocomplete="new-password" maxlength="256">
+            </div>
+            <button class="btn primary block big" id="auth-submit" type="submit">Create account</button>
+          </form>
         </div>
-        <input type="file" id="file" accept="image/*" hidden>
-        <div class="drop-actions">
-          <button class="btn" id="choose" type="button">Choose photo</button>
-          <button class="btn quiet" id="clear" type="button" hidden>Remove</button>
+        <div class="auth-side">
+          <h3>Before you start</h3>
+          <ul class="checklist">
+            <li>A close-up of one skin spot works best, with the spot in the middle of the image.</li>
+            <li>Use good, even light and keep the image in focus.</li>
+            <li>Please leave out your face, tattoos or anything else that could identify you.</li>
+          </ul>
+          <p class="muted">The reliability figures and privacy details below are open to everyone, no account needed.</p>
         </div>
-        <p class="mini-privacy">Not saved, not shared. The photo is only held in memory while the model looks at it.</p>
-        <p class="examples-title">Samples, one per type, plus healthy skin</p>
-        <p class="examples-sub">Test-set photos the model never trained on.</p>
-        <div class="examples" id="examples"></div>
-        <div class="truth" id="truth"></div>
-        <div class="error" id="error" role="alert" hidden></div>
       </div>
 
-      <div aria-live="polite">
-        <div class="panel verdict" id="verdict"></div>
-        <div class="panel seen" id="seen" hidden></div>
-        <div class="panel care-panel" id="care" hidden></div>
-        <div class="panel probs" id="probs" hidden></div>
-        <p class="note">A student project, not a medical diagnosis. If a skin spot worries you, we'd recommend talking to a doctor or dermatologist.</p>
+      <!-- Signed in -->
+      <div id="app" hidden>
+        <div class="check-grid">
+          <div class="panel upload-card" id="upload-card">
+            <p class="calm-note">You don't need to know what the condition is. Just upload the image and we'll guide you through the result.</p>
+            <div class="zone" id="zone" tabindex="0" role="button" aria-label="Upload an image. Click, drop a file here, or paste">
+              <div class="hint" id="hint"><strong>Drop your image here</strong><span>or use the button below</span></div>
+              <img id="preview" alt="The image you uploaded" hidden>
+            </div>
+            <input type="file" id="file" accept="image/*" hidden>
+            <div class="upload-actions">
+              <button class="btn primary big" id="choose" type="button">Choose an image</button>
+              <button class="btn ghost big" id="clear" type="button" hidden>Remove image</button>
+            </div>
+            <p class="small muted">Your image is checked on this computer and is not saved.</p>
+            <details class="examples-box">
+              <summary>No image? Try an example</summary>
+              <p class="small muted">These are anonymous example images from a research dataset. Choosing one shows that image.</p>
+              <div class="examples" id="examples"></div>
+            </details>
+            <div class="truth" id="truth"></div>
+            <div class="form-error" id="error" role="alert" hidden></div>
+          </div>
+
+          <div class="result-col" aria-live="polite">
+            <div class="panel placeholder" id="placeholder">
+              <h3>Your result will appear here</h3>
+              <p class="muted">It takes about a second. You'll see what the image most closely matches, what that means, and what you could do next.</p>
+            </div>
+            <div class="panel analysing" id="analysing" hidden>
+              <h3>Looking at your image</h3>
+              <ul class="progress-list">
+                <li data-p="0">Checking it's a clear close-up of skin</li>
+                <li data-p="1">Analysing it with an AI model trained on about 10,000 images</li>
+                <li data-p="2">Preparing a simple explanation</li>
+              </ul>
+            </div>
+            <article class="panel result" id="result" hidden tabindex="-1"></article>
+          </div>
+        </div>
       </div>
     </div>
   </section>
 
-  <!-- ACCURACY -->
-  <section class="page" id="accuracy" hidden aria-label="How accurate is it">
-    <h2>How accurate is it?</h2>
-    <p class="lede" id="acc-lede">Measured on photos the model never saw during training.</p>
-    <div class="stats acc-stats" id="acc-stats"></div>
+  <!-- RELIABILITY -->
+  <section class="section soft" id="reliability" aria-labelledby="rel-title">
+    <div class="wrap">
+      <h2 class="section-title" id="rel-title">How reliable is it?</h2>
+      <p class="lede narrow" id="rel-lede">We tested the AI on images it had never seen before, where the correct answer had been confirmed by specialists.</p>
+      <div class="stats" id="acc-stats"></div>
 
-    <div class="feature panel">
-      <div>
-        <h3>The melanoma warning</h3>
-        <p id="warn-text">On its own, the model's top answer catches about half of melanomas. Missing a melanoma is far worse than an
-          unnecessary check-up, so the site also warns whenever the chance of melanoma passes a small threshold.</p>
-      </div>
-      <div class="stats" id="warn-stats"></div>
-    </div>
-
-    <div class="feature panel">
-      <div>
-        <h3>The photo check</h3>
-        <p>Before giving any answer, the site checks whether the photo looks like the close-up skin photos the model learned from.
-          If it doesn't (a normal phone snapshot, a face, an object), it says so instead of guessing. The check is set so that only
-          about 1 in 100 real lesion photos are turned away.</p>
-      </div>
-      <div class="stats" id="check-stats"></div>
-    </div>
-
-    <div class="figs single">
-      <figure class="fig">
-        <picture><source srcset="figures/confusion_dark.png" media="(prefers-color-scheme: dark)">
-          <img src="figures/confusion.png" alt="Confusion matrix of the model on the internal test set" loading="lazy"></picture>
-        <figcaption>Confusion matrix on the internal test set. The diagonal is the share of each true lesion type the model gets right.</figcaption>
-      </figure>
-      <div>
-        <h3>Correct answers by lesion type</h3>
-        <table class="recall" id="recall-table"></table>
-        <p class="legend-note">Share of each lesion type the model names correctly (recall), on both test sets.</p>
-      </div>
-    </div>
-
-    <div class="rows">
-      <div><h3>Why this model</h3><p>It came out joint best of four models compared on the same data (a CNN from scratch, ResNet50, EfficientNet-B0 and MobileNetV3), caught the most melanomas on average across its training runs, and is small and fast enough for any laptop.
-        Full study: <a href="https://github.com/NikithPrasad/Skin-Disease-Model-Comparison">Skin-Disease-Model-Comparison</a>.</p></div>
-      <div><h3>How it was trained</h3><p id="trained-text">HAM10000: 10,015 dermoscopy photos of 7 lesion types, plus 3,916 patches of healthy skin cut from around the lesions using the dataset's lesion outlines. Everything is split by lesion, so no lesion or its surrounding skin appears in both training and testing. ImageNet-pretrained EfficientNet-B0, fine-tuned for 30 epochs with rotation, flip, zoom and colour augmentation and a class-weighted loss.</p></div>
-      <div><h3>Two test sets</h3><p>2,004 held-out HAM10000 photos, and 1,511 photos from the separate ISIC 2018 test set, which checks the model copes with images from a different collection.</p></div>
-      <div><h3>Limits</h3><p>Trained only on dermoscopy photos (taken through a skin magnifier), including its healthy-skin examples. Ordinary phone photos are usually turned away by the photo check rather than diagnosed. It knows 7 lesion types and healthy skin, nothing else. Not a medical device.</p></div>
+      <details class="more">
+        <summary>See the detailed results</summary>
+        <div class="more-body">
+          <div class="two-col">
+            <div>
+              <h3>Correct answers by type</h3>
+              <table class="recall" id="recall-table"></table>
+              <p class="small muted">Share of each type the AI named correctly, on two separate test sets.</p>
+            </div>
+            <figure class="fig">
+              <img src="figures/confusion.png" alt="Grid comparing the AI's answers with the confirmed answers for each type" loading="lazy">
+              <figcaption class="small muted">Each row is the confirmed answer, each column the AI's answer. The diagonal shows correct answers.</figcaption>
+            </figure>
+          </div>
+          <div class="two-col">
+            <div><h3>The melanoma check</h3><p id="warn-text"></p><div class="stats mini" id="warn-stats"></div></div>
+            <div><h3>The image check</h3><p>Before giving any result, the AI checks whether the image looks like a close-up of skin. If it doesn't, it says so instead of guessing.</p><div class="stats mini" id="check-stats"></div></div>
+          </div>
+          <div class="two-col">
+            <div><h3>How it was trained</h3><p id="trained-text">About 10,000 close-up images of 7 types of skin spots from the HAM10000 research dataset, plus about 3,900 images of healthy skin. Images of the same spot were never used for both training and testing.</p>
+              <p>Model: EfficientNet-B0. It was chosen from a fair comparison of four AI models: <a href="https://github.com/NikithPrasad/Skin-Disease-Model-Comparison">see the comparison study</a>.</p></div>
+            <div><h3>Limits</h3><p>The AI learned from close-up images taken with a skin magnifier, as used in clinics, so ordinary phone photos may not work well. It knows 7 types of skin spots and healthy skin, nothing else. It is a student project for awareness, not a medical device.</p></div>
+          </div>
+        </div>
+      </details>
     </div>
   </section>
 
   <!-- PRIVACY -->
-  <section class="page" id="privacy" hidden aria-label="Privacy">
-    <h2>Your privacy</h2>
-    <p class="lede">Skin photos are personal, so this app is built to forget them.</p>
-    <div class="facts">
-      <div><h3>Photos are never saved</h3><p>A photo is held in memory only while the model looks at it, well under a second, and is then discarded. It is never written to disk.</p></div>
-      <div><h3>No photos in the database</h3><p>The database holds only usernames, hashed passwords and login sessions. It has no place for images, and automated tests check that none get in.</p></div>
-      <div><h3>Nothing leaves this computer</h3><p>The model runs here. No cloud service, no API, no tracking. The website only accepts connections from this computer.</p></div>
-      <div><h3>You stay in control</h3><p>Remove clears a photo from the screen. You can sign out at any time, or delete your account below.</p></div>
-    </div>
-    <div class="danger-zone" id="delete-section" hidden>
-      <h3>Delete your account</h3>
-      <p>Removes your username, password and sessions from this computer for good.</p>
-      <button class="btn quiet small" id="delete-open" type="button">Delete account</button>
+  <section class="section" id="privacy" aria-labelledby="privacy-title">
+    <div class="wrap">
+      <h2 class="section-title" id="privacy-title">Your privacy</h2>
+      <p class="lede narrow">Here is exactly what happens to your image and your account.</p>
+      <div class="privacy-grid">
+        <div class="panel"><h3>Your image stays on this computer</h3><p>The AI runs on this computer. Your image is never sent over the internet, and there is no cloud service or tracking.</p></div>
+        <div class="panel"><h3>Your image is not saved</h3><p>It is held in memory only while it is being analysed, then discarded. It is never written to disk or stored in a database, and it is never used to train the AI. Automated tests check this.</p></div>
+        <div class="panel"><h3>Keep images anonymous</h3><p>Please crop out your face, tattoos, jewellery or anything else that could identify you. A close-up of just the skin spot works best anyway.</p></div>
+        <div class="panel"><h3>Your account</h3><p>We store only your username, a protected (hashed) password and your sign-in session, all on this computer.</p>
+          <div id="delete-section" hidden><button class="text-link danger-link" id="delete-open" type="button">Delete my account</button></div></div>
+      </div>
     </div>
   </section>
 </main>
 
-<footer>
-  <div class="wrap">Data: HAM10000 (Tschandl et al., 2018, CC BY-NC 4.0) and the ISIC 2018 Task 3 test set. A student project for education, not for medical use.</div>
+<footer class="footer">
+  <div class="wrap">
+    <p><b>This is an AI-based awareness tool, not a medical diagnosis.</b> If you are worried about your skin, please talk to a qualified healthcare professional.</p>
+    <p class="small muted">A college project. Data: HAM10000 (Tschandl et al., 2018, CC BY-NC 4.0) and the ISIC 2018 test set.</p>
+  </div>
 </footer>
 
 <dialog id="delete-dialog" aria-labelledby="delete-title">
   <form id="delete-form" method="dialog">
     <h2 id="delete-title">Delete your account?</h2>
-    <p>This permanently removes your username, password and sessions from this computer. Enter your password to confirm.</p>
+    <p>This permanently removes your username, password and sign-in sessions from this computer. Enter your password to confirm.</p>
     <div class="form-error" id="delete-error" role="alert" hidden></div>
     <div class="field">
       <label for="d-pass">Password</label>
       <input class="input" id="d-pass" type="password" autocomplete="current-password" required>
     </div>
     <div class="dialog-actions">
-      <button class="btn quiet" type="button" id="delete-cancel">Cancel</button>
+      <button class="btn ghost" type="button" id="delete-cancel">Keep my account</button>
       <button class="btn danger" type="submit" id="delete-confirm">Delete account</button>
     </div>
   </form>
