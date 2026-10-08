@@ -159,7 +159,7 @@ function waiting(text) {
   const v = $("verdict");
   v.className = "panel verdict waiting";
   v.replaceChildren(el("div", { class: "label", text: "Result" }), el("div", { class: "big", text }));
-  $("mel-warning").hidden = true;
+  $("care").hidden = true;
   $("probs").hidden = true;
 }
 
@@ -203,8 +203,9 @@ function showError(msg) { $("error").textContent = msg; $("error").hidden = fals
 
 function render(r, truth) {
   const info = state.info.classes[r.top], top = r.probs[0];
-  // Never call a lesion "harmless" while the melanoma warning is showing
-  const tag = info.serious ? ["warn", "Can be serious"] : r.melanoma_warning ? ["warn", "Get it checked"] : ["ok", "Usually harmless"];
+  // Never call a lesion "harmless" while the advice says to see a doctor
+  const checkIt = r.melanoma_warning || top.p < UNSURE_BELOW;
+  const tag = info.serious ? ["warn", "Can be serious"] : checkIt ? ["warn", "Get it checked"] : ["ok", "Usually harmless"];
   const v = $("verdict");
   v.className = "panel verdict";
   let sub = "";
@@ -218,17 +219,7 @@ function render(r, truth) {
     top.p < UNSURE_BELOW && el("p", { class: "unsure", text: `The model is unsure: no lesion type reaches 50%. The second guess is ${className(r.probs[1].code)} (${pct(r.probs[1].p)}).` }),
   ].filter(Boolean));
 
-  // Melanoma warning, only when melanoma is not already the top answer
-  const w = $("mel-warning"), m = state.info;
-  if (r.melanoma_warning && r.top !== "mel") {
-    const pMel = r.probs.find((p) => p.code === "mel").p;
-    w.replaceChildren(el("h3", { text: "Melanoma can't be ruled out" }),
-      el("p", { text: `The model gives melanoma a ${pct(pMel)} chance. That is above the ${pct(m.melanoma_threshold)} level this site uses to warn, ` +
-        `which in testing caught ${whole(m.test.melanoma_recall_with_warning)} of melanomas. Please have this lesion checked by a doctor.` }));
-    w.hidden = false;
-  } else {
-    w.hidden = true;
-  }
+  renderCare(r);
 
   const bars = r.probs.map((p) => {
     const fill = el("span", { class: "fill" + (p.code === r.top ? " lead" : "") });
@@ -241,6 +232,31 @@ function render(r, truth) {
   $("probs").replaceChildren(el("div", { class: "mhead" }, el("h3", { text: "All 7 lesion types" }), el("span", { class: "ms", text: `${r.ms} ms` })),
     el("div", { class: "bars" }, ...bars));
   $("probs").hidden = false;
+}
+
+// What to do next. The lesion type decides the advice, but the melanoma warning and an unsure
+// model both push it up to "see a doctor", because missing a cancer is the costly mistake.
+function renderCare(r) {
+  const m = state.info, info = m.classes[r.top], care = info.care, top = r.probs[0];
+  let level = care.level, headline = care.headline, why = "", steps = care.steps;
+  if (r.melanoma_warning && r.top !== "mel") {
+    const pMel = r.probs.find((p) => p.code === "mel").p;
+    level = "urgent"; headline = "See a doctor soon: melanoma can't be ruled out";
+    why = `The model gives melanoma a ${pct(pMel)} chance. That is above the ${pct(m.melanoma_threshold)} level this site uses to warn, ` +
+      `which in testing caught ${whole(m.test.melanoma_recall_with_warning)} of melanomas.`;
+    steps = m.classes.mel.care.steps;
+  } else if (level === "selfcare" && top.p < UNSURE_BELOW) {
+    level = "doctor"; headline = "Have a doctor take a look";
+    why = "The model is not confident about this photo, so a doctor's opinion is the safe next step. Until then:";
+  }
+  const section = el("div", { class: "care " + level },
+    el("h3", { text: headline }),
+    why && el("p", { class: "why", text: why }),
+    el("ol", {}, ...steps.map((s) => el("li", { text: s }))));
+  $("care").replaceChildren(section,
+    el("div", { class: "signs" }, el("h3", { text: "See a doctor straight away if" }),
+      el("ul", {}, ...m.urgent_signs.map((s) => el("li", { text: s })))));
+  $("care").hidden = false;
 }
 
 // ---------- accuracy tab ----------
@@ -269,7 +285,6 @@ function renderAccuracy(m) {
 function renderExamples(info) {
   // ?v= changes whenever a different photo is exported, so browsers never show a stale cached sample
   const src = (code) => `examples/${code}.jpg?v=${info.examples?.[code] ?? ""}`;
-  for (const img of document.querySelectorAll(".mosaic img[data-code]")) img.src = src(img.dataset.code);
   for (const code of Object.keys(info.classes)) {
     const b = el("button", { class: "ex", type: "button", title: info.classes[code].name, "aria-label": `Try a sample ${info.classes[code].name} photo` },
       el("img", { src: src(code), alt: "" }));

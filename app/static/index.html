@@ -29,15 +29,25 @@
   <div class="hero">
     <div>
       <h1>Skin disease detection from a single photo</h1>
-      <p class="lede">Upload a dermoscopy photo of a skin lesion. A trained EfficientNet-B0 model suggests which of 7 lesion types it shows.</p>
+      <p class="lede">Upload a dermoscopy photo of a skin lesion. You get the most likely type and clear advice on what to do next.</p>
       <p class="privacy-line"><strong>Photos are never saved.</strong> Each one is checked in this computer's memory and discarded
         straight after. Nothing is stored in a database or sent over the internet.</p>
     </div>
-    <figure class="mosaic">
-      <img data-code="mel" src="examples/mel.jpg" alt="Dermoscopy photo of a melanoma from the HAM10000 test set" width="600" height="450">
-      <img data-code="bcc" src="examples/bcc.jpg" alt="Dermoscopy photo of a basal cell carcinoma" width="600" height="450">
-      <img data-code="nv" src="examples/nv.jpg" alt="Dermoscopy photo of an ordinary mole" width="600" height="450">
-      <figcaption>Melanoma, basal cell carcinoma and an ordinary mole, from the HAM10000 test set.</figcaption>
+    <figure class="preview">
+      <div class="panel preview-card">
+        <div class="label">Most likely</div>
+        <div class="preview-title">Melanocytic nevus <span class="tag ok">Usually harmless</span></div>
+        <p class="preview-sub">An ordinary mole. 91% confidence.</p>
+        <div class="care selfcare">
+          <h3>Usually no treatment needed</h3>
+          <ol>
+            <li>Check it once a month with the ABCDE rule.</li>
+            <li>Take a photo now so you can compare it later.</li>
+            <li>Use sunscreen and avoid sunburn.</li>
+          </ol>
+        </div>
+      </div>
+      <figcaption>An example result. Every check ends with what to do next, from self-care to seeing a doctor.</figcaption>
     </figure>
   </div>
 
@@ -84,7 +94,7 @@
         <ol>
           <li><span><b>Sign in</b>A free local account keeps the tool to people you let use this computer.</span></li>
           <li><span><b>Add a photo</b>A close-up dermoscopy image, lesion in the centre. Or use one of the samples.</span></li>
-          <li><span><b>Read the result</b>The most likely lesion type, how sure the model is, and a warning if melanoma can't be ruled out.</span></li>
+          <li><span><b>Know what to do</b>The most likely lesion type, how serious it is, and clear next steps: self-care, a check-up, or seeing a doctor soon.</span></li>
         </ol>
         <p class="note">The accuracy figures and privacy details are open to everyone, no account needed.</p>
       </div>
@@ -113,7 +123,7 @@
 
       <div aria-live="polite">
         <div class="panel verdict" id="verdict"></div>
-        <div class="panel alert" id="mel-warning" hidden></div>
+        <div class="panel care-panel" id="care" hidden></div>
         <div class="panel probs" id="probs" hidden></div>
         <p class="note">A student project, not a medical diagnosis. Anyone worried about a skin lesion should see a doctor or dermatologist.</p>
       </div>
