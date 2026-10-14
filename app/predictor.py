@@ -1,4 +1,4 @@
-"""Loads the trained EfficientNet-B0 (7 lesion types + healthy skin) and checks an image held in memory.
+"""Loads the trained EfficientNet-B0 (23 skin-condition groups + healthy skin) and checks an image held in memory.
 
 Images arrive as bytes, are decoded in memory and discarded after prediction; nothing
 here writes to disk.
@@ -15,94 +15,17 @@ import numpy as np
 import timm
 import torch
 import torch.nn.functional as F
-from PIL import Image
+from PIL import Image, ImageOps
+
+from conditions import CONDITIONS
 
 APP = Path(__file__).resolve().parent
-CLASSES = ["akiec", "bcc", "bkl", "df", "mel", "nv", "vasc", "healthy"]
-CACHE_SIZE, IMG = 256, 224  # same preprocessing as training
+IMG = 224  # same preprocessing as training: shorter side to 224, then the central 224x224
 MEAN = torch.tensor([0.485, 0.456, 0.406]).view(1, 3, 1, 1)
 STD = torch.tensor([0.229, 0.224, 0.225]).view(1, 3, 1, 1)
 Image.MAX_IMAGE_PIXELS = 50_000_000  # refuse absurdly large images (decompression bombs)
-
-CLASS_INFO = {
-    "akiec": ("Actinic keratosis", "A rough, scaly patch caused by years of sun exposure. It is common and treatable, and worth having looked at because it can change over time."),
-    "bcc": ("Basal cell carcinoma", "A common, slow-growing type of skin cancer. It rarely spreads and is very treatable."),
-    "bkl": ("Benign keratosis", "A common, harmless skin growth, such as a sun spot or a raised spot that appears with age."),
-    "df": ("Dermatofibroma", "A common, harmless firm bump in the skin, often on the legs."),
-    "mel": ("Melanoma", "A type of skin cancer that starts in the cells that give skin its colour. When found early it is very treatable."),
-    "nv": ("Melanocytic nevus", "An ordinary mole. Most people have many, and they are usually harmless."),
-    "vasc": ("Vascular lesion", "A small growth made of blood vessels, such as a cherry spot. Usually harmless."),
-    "healthy": ("Healthy skin", "No skin spot or lesion was found in this image."),
-}
-SERIOUS = {"mel", "bcc", "akiec"}
-
-CONSIDER = "Consider discussing this result with a qualified healthcare professional"
-MONITOR = "This result appears less concerning, but changes in a skin lesion should still be monitored"
-
-# Plain-language guidance per type. General information only (no medicines named), in line with
-# common public-health advice. The AI never decides for the user whether they need a doctor.
-#   level      "urgent" / "doctor": worth discussing with a professional; "selfcare": appears less concerning
-#   headline   the main "what to do next" message
-#   looks      what this condition typically looks like (general signs, not read from the photo)
-#   treatment  how it is usually managed
-#   steps      what the person can do now
-GUIDANCE = {
-    "mel": {"level": "urgent", "headline": CONSIDER,
-            "looks": "uneven colours (brown, black, sometimes blue-grey or red), an irregular edge and a lopsided shape",
-            "treatment": "If a doctor confirms it, it is usually removed with a small operation. Found early, this is very effective.",
-            "steps": ["Book an appointment with a GP or dermatologist and show them this spot. It is a good idea to arrange this soon rather than waiting.",
-                      "Take a clear photo now, so you can show the doctor and notice any changes.",
-                      "Please don't try to remove or treat it at home.",
-                      "Protect it from the sun and use SPF 30+ sunscreen."]},
-    "bcc": {"level": "doctor", "headline": CONSIDER,
-            "looks": "a shiny, pearly or pink bump, sometimes with tiny visible blood vessels or a small sore in the middle",
-            "treatment": "If a doctor confirms it, it is usually removed with a minor procedure or treated with a prescribed cream. Once treated it rarely comes back.",
-            "steps": ["Mention it to a GP or dermatologist at your next convenient appointment.",
-                      "Avoid picking at it or using home removal products.",
-                      "Protect your skin from the sun: SPF 30+, a hat and shade around midday."]},
-    "akiec": {"level": "doctor", "headline": CONSIDER,
-              "looks": "a rough, dry, scaly patch, pink or red, on skin that gets a lot of sun",
-              "treatment": "Most patches clear with a simple treatment from a doctor, such as freezing, a prescribed cream or light therapy.",
-              "steps": ["Mention it to a GP or dermatologist at your next convenient appointment.",
-                        "Avoid scratching or picking at the scaly surface.",
-                        "Use SPF 30+ sunscreen every day to help prevent new patches."]},
-    "nv": {"level": "selfcare", "headline": MONITOR,
-           "looks": "an evenly coloured brown spot with a smooth, regular edge",
-           "treatment": "Ordinary moles usually need no treatment. A doctor can remove one if it bothers you.",
-           "steps": ["Check it once a month using the ABCDE guide: Asymmetry, uneven Border, several Colours, Diameter over 6 mm, or Evolving (changing).",
-                     "Take a photo now, so you can compare it later.",
-                     "Use sunscreen and avoid sunburn and tanning beds."]},
-    "bkl": {"level": "selfcare", "headline": MONITOR,
-            "looks": "a waxy, 'stuck-on' looking light or dark brown spot, often with a slightly rough surface",
-            "treatment": "Usually no treatment is needed. If it itches or catches on clothing, a doctor can remove it quickly.",
-            "steps": ["Try not to pick or scratch it, as it can bleed or get irritated.",
-                      "If it itches, a fragrance-free moisturiser can help.",
-                      "Use sunscreen to stop sun spots from getting darker."]},
-    "df": {"level": "selfcare", "headline": MONITOR,
-           "looks": "a small firm brown or pink bump, often with a paler centre, that dimples when pinched",
-           "treatment": "Usually no treatment is needed; it often stays the same for years. A doctor can remove it if it is painful.",
-           "steps": ["Take care when shaving over it, as nicking it can make it sore.",
-                     "Keep an eye on its size and colour over time."]},
-    "vasc": {"level": "selfcare", "headline": MONITOR,
-             "looks": "a bright red, purple or dark red spot made of tiny blood vessels",
-             "treatment": "Usually no treatment is needed. A doctor can remove it with a laser or by freezing if it bleeds often or you would like it gone.",
-             "steps": ["If it bleeds after a knock, press on it gently with a clean cloth for 10 minutes.",
-                       "Keep an eye on its size over time."]},
-    "healthy": {"level": "selfcare", "headline": "This image appears to show healthy skin. It is still worth keeping an eye on your skin over time",
-                "looks": "evenly coloured skin with no raised, dark or unusual spot",
-                "treatment": "Nothing to manage in this image.",
-                "steps": ["Look over your skin once a month, including places you don't often see, and note any new or changing spots.",
-                          "Use SPF 30+ sunscreen and avoid sunburn and tanning beds.",
-                          "If you were checking a particular spot, try a close-up image with just that spot in the centre."]},
-}
-
-# Shown with every result: signs worth discussing with a doctor whatever the AI says
-URGENT_SIGNS = [
-    "It bleeds, oozes or crusts without being injured.",
-    "It grows, or changes shape or colour, over a few weeks.",
-    "It is a sore that hasn't healed after 3 to 4 weeks.",
-    "It is new, looks different from your other spots, or becomes painful or itchy.",
-]
+CLASSES = json.loads((APP / "models" / "meta.json").read_text())["classes"]
+assert set(CLASSES) == set(CONDITIONS), "meta.json and conditions.py must list the same groups"
 
 
 class InvalidImage(Exception):
@@ -110,20 +33,25 @@ class InvalidImage(Exception):
 
 
 def load_image(image_bytes):
-    """Decode in memory and resize to 256x256, as in training."""
+    """Decode in memory; shorter side to 224, then the central 224x224, as in training."""
     try:
         with warnings.catch_warnings():
             warnings.simplefilter("error", Image.DecompressionBombWarning)
             with Image.open(io.BytesIO(image_bytes)) as im:
-                return im.convert("RGB").resize((CACHE_SIZE, CACHE_SIZE), Image.BICUBIC)
+                im = ImageOps.exif_transpose(im).convert("RGB")  # phone photos: honour the rotation flag
+                w, h = im.size
+                s = IMG / min(w, h)
+                im = im.resize((max(IMG, round(w * s)), max(IMG, round(h * s))), Image.BICUBIC)
+                w, h = im.size
+                left, top = (w - IMG) // 2, (h - IMG) // 2
+                return im.crop((left, top, left + IMG, top + IMG))
     except (OSError, ValueError, Image.DecompressionBombError, Image.DecompressionBombWarning) as e:
         raise InvalidImage(str(e)) from None
 
 
 def to_input(img):
-    """256x256 RGB -> 224x224 antialiased -> ImageNet normalise (as in training)."""
+    """224x224 RGB -> ImageNet normalise (as in training)."""
     x = torch.from_numpy(np.asarray(img).copy()).permute(2, 0, 1).float().div(255).unsqueeze(0)
-    x = F.interpolate(x, size=(IMG, IMG), mode="bilinear", antialias=True, align_corners=False)
     return (x - MEAN) / STD
 
 
@@ -150,7 +78,7 @@ class Predictor:
         self.model.load_state_dict({k: v.float() if v.is_floating_point() else v for k, v in state.items()})
         self.model.eval().to(device).requires_grad_(False)
         # "Is this a close-up skin photo?" check, see score_photo(): a general ImageNet-trained
-        # EfficientNet-B0 that knows everyday objects and scenes, plus statistics of training photos
+        # EfficientNet-B0 that knows everyday objects and scenes, plus a skin-vs-everyday-photo classifier
         self.general = timm.create_model(self.meta["general_timm_id"], pretrained=False, num_classes=0)
         general = torch.load(models_dir / "general.pt", map_location="cpu", weights_only=True)
         self.general.load_state_dict({k: v.float() if v.is_floating_point() else v for k, v in general.items()})
@@ -191,14 +119,13 @@ class Predictor:
             "top": CLASSES[order[0]],
             "ms": round(ms, 1),
             # Screening flag: melanoma probability above the threshold chosen on validation data
-            "melanoma_warning": probs[CLASSES.index("mel")] >= self.meta["melanoma_threshold"],
+            "melanoma_warning": probs[CLASSES.index("melanoma")] >= self.meta["melanoma_threshold"],
             "probs": [{"code": CLASSES[i], "p": round(probs[i], 4)} for i in order],
             "attention": attention_image(img, cam),
         }
 
     def score_photo(self, feature):
-        """How unlike the training photos this is: Mahalanobis distance of the general model's
-        features from those of the training photos. Higher = less like a close-up skin photo.
-        The threshold turns away ~0.5% of real validation photos."""
-        d = feature - self.ood["mean"]
-        return float(d @ self.ood["precision"] @ d)
+        """How unlike a photo of skin this is: minus the logit of a small skin-vs-everyday-photo
+        classifier on the general model's features. Higher = less like skin. The threshold turns
+        away ~0.5% of real validation photos."""
+        return float(-(feature @ self.ood["weight"] + self.ood["bias"]))

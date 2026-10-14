@@ -1,9 +1,9 @@
 # SkinCheck: skin concern awareness
 
-A calm, simple local website that helps people understand a skin concern. Upload a close-up image of a
-skin spot and an **EfficientNet-B0** model (trained on the HAM10000 dataset) gives an AI-based indication
-of what it most closely matches, out of 7 types of skin spots or healthy skin, explained in plain
-language with practical next steps. Runs on any laptop: no GPU, no internet, no API key.
+A calm, simple local website that helps people understand a skin concern. Upload an ordinary photo of
+skin, nails or scalp and an **EfficientNet-B0** model gives an AI-based indication of which of
+**23 groups of common skin, hair and nail conditions** (or healthy skin) it most closely matches,
+explained in plain language with practical next steps. Runs on any laptop: no GPU, no internet, no API key.
 
 **This is an awareness tool, not a medical diagnosis.** It never tells anyone they have a disease, and it
 never decides for them whether to see a doctor.
@@ -13,6 +13,45 @@ after; nothing is written to disk, stored in a database or sent anywhere.
 
 The model was chosen from a fair comparison of four architectures:
 [Skin-Disease-Model-Comparison](https://github.com/NikithPrasad/Skin-Disease-Model-Comparison).
+
+## What it recognises
+
+The groups were chosen to cover the example photos our teacher shared (everyday clinical photos of
+leprosy, pellagra, acne, ringworm, shingles, vitiligo, nail and hair problems, moles, melanoma and more):
+
+| Group | Includes, for example | Teacher's examples in this group |
+|---|---|---|
+| Acne, rosacea and clogged pores | acne, truncal acne, blackheads, rosacea | trunkal acne, sebaceous gland clogging, topical steroid abuse |
+| Bacterial skin infection | impetigo, folliculitis, cellulitis | impetigo contagiosa |
+| Blistering skin disease | pemphigus, pemphigoid, Hailey-Hailey | pemphigus |
+| Eczema and dermatitis | eczema, contact / seborrhoeic / stasis dermatitis | peri-orbital dermatitis, stasis dermatitis |
+| Fungal infection (ringworm) | tinea corporis / faciei, athlete's foot | tinea corporis, tinea faciei |
+| Granulomatous skin disease | granuloma annulare, sarcoidosis | chronic granuloma |
+| Hair loss | pattern balding, alopecia areata, hair pulling | androgenic alopecia, trichotillomania |
+| Herpes, shingles and chickenpox | cold sores, shingles, chickenpox | herpes simplex, herpes zoster |
+| Leprosy (Hansen's disease) | tuberculoid, borderline, lepromatous | nodular / histoid leprosy |
+| Sun-related and pigment changes | vitiligo, sun allergy, sun damage | lip vitiligo, UV-ray allergy |
+| Lupus and connective-tissue disease | lupus, scleroderma, dermatomyositis | |
+| Melanoma | melanoma, lentigo maligna | melanoma, malignant melanoma |
+| Mole or birthmark | moles, congenital / Becker's nevus | clear cell nevus, congenital nevus, giant mole, nevus of Ota |
+| Nail condition | fungal nail, claw nail, dystrophy, paronychia | claw nail, nail dystrophy |
+| Psoriasis, lichen planus and similar | psoriasis, lichen planus, pityriasis rosea | oral lichen planus |
+| Scabies, bites and infestations | scabies, insect-bite reactions, lice | papular urticaria (mosquito-bite allergy) |
+| Skin cancer or pre-cancer | basal / squamous cell carcinoma, actinic keratosis | |
+| Benign growth, cyst or scar | skin tags, syringoma, cysts, keloid | giant acrochordon, syringoma, trichoblastoma, mucinous cyst, hypertrophic scar |
+| Nutritional or systemic disease signs | pellagra, zinc deficiency, acanthosis nigricans | pellagra |
+| Hives (urticaria) | acute urticaria | acute urticaria |
+| Vascular lesion | cherry angioma, pyogenic granuloma, port-wine stain | |
+| Drug reaction, viral rash or vasculitis | drug eruptions, measles, HFMD, vasculitis | |
+| Warts and molluscum | warts, molluscum contagiosum | |
+| Healthy skin | | |
+
+Two of the teacher's examples have no matching training data in any public dataset we found: a foot
+callus, and a few uncaptioned photos that were only identifiable as "a rash". The model will still give
+its closest group for them.
+
+Each result shows the closest group, the top answers with their percentages, what the group means,
+how it is usually managed and what the person can do now.
 
 ## Design
 
@@ -29,13 +68,13 @@ Designed for people who may already be worried, including older adults and non-t
 
 ## What a result shows
 
-0. **Image check first**: if the image doesn't look like a close-up of skin (a normal snapshot, a face, an
-   object), the site says so and gives no result instead of guessing.
+0. **Image check first**: if the image doesn't look like a photo of skin (a landscape, an object, a
+   screenshot), the site says so and gives no result instead of guessing.
 1. **"Your image most closely matches: ..."** with a confidence level in words (high, moderate, low).
-2. **What this means**: a short plain-language explanation of that type of skin spot.
-3. **What to do next**: for types that can need treatment, for the melanoma check, or when the AI is
+2. **What this means**: a short plain-language explanation of that group and the conditions it includes.
+3. **What to do next**: for groups that usually need a doctor's treatment, for the melanoma check, or when the AI is
    unsure, *"Consider discussing this result with a qualified healthcare professional"* (soft blue box);
-   otherwise *"This result appears less concerning, but changes in a skin lesion should still be
+   otherwise *"This result appears less concerning, but changes in your skin should still be
    monitored"* (soft green box). Both include practical steps, plus how it is usually managed.
 4. **When to talk to a doctor**: signs worth discussing whatever the result.
 5. Optional, folded away: where in the image the AI looked (Grad-CAM) and all possibilities.
@@ -65,61 +104,80 @@ After setup it works offline. Create an account on the page, then upload a photo
 ## How accurate is it
 
 <!-- numbers:start -->
-Measured on photos the model never saw in training, using exactly the weights shipped here
-(seed 1 of 2 training runs, chosen by validation score).
+Measured on 5,308 test photos the model never saw in training (no duplicate or same-patient
+photo was in both), using exactly the weights shipped here (seed 0 of 1 training runs,
+chosen by validation score). Dataset: 24,792 training / 5,310 validation / 5,308 test photos.
 
-| | HAM10000 test (lesions + healthy-skin patches, split by lesion) | ISIC 2018 test (1,511 lesion photos, separate collection) |
-|---|---|---|
-| Macro F1 | 0.751 | 0.721 |
-| Balanced accuracy | 0.750 | 0.708 |
-| Accuracy | 0.888 | 0.825 |
-| Lesions wrongly called healthy skin | 0.1% | 0% |
+| | Test set |
+|---|---|
+| Accuracy (closest group is right) | 65% |
+| Right group among the top 3 answers | 79% |
+| Macro F1 (every group counts equally) | 0.631 |
+| Balanced accuracy | 0.647 |
+| Macro ROC-AUC | 0.937 |
+| Skin conditions wrongly called healthy skin | 0.3% |
+| Healthy skin wrongly given a condition | 0.8% |
 
-Correct answers by type (recall):
+Correct answers by group (recall):
 
-| Type | HAM10000 test | ISIC 2018 test |
-|---|---|---|
-| Actinic keratosis | 62% | 67% |
-| Basal cell carcinoma | 79% | 75% |
-| Benign keratosis | 74% | 68% |
-| Dermatofibroma | 65% | 66% |
-| Melanoma | 54% | 60% |
-| Melanocytic nevus (mole) | 94% | 93% |
-| Vascular lesion | 72% | 66% |
-| Healthy skin | 99% | not in this set |
+| Group | Test set |
+|---|---|
+| Acne, rosacea and clogged pores | 79% |
+| Bacterial skin infection | 69% |
+| Blistering skin disease | 51% |
+| Eczema and dermatitis | 62% |
+| Fungal infection (ringworm) | 66% |
+| Granulomatous skin disease | 46% |
+| Hair loss | 81% |
+| Healthy skin | 99% |
+| Herpes, shingles and chickenpox | 73% |
+| Leprosy (Hansen's disease) | 82% |
+| Sun-related and pigment changes | 44% |
+| Lupus and connective-tissue disease | 39% |
+| Melanoma | 62% |
+| Mole or birthmark | 70% |
+| Nail condition | 93% |
+| Psoriasis, lichen planus and similar | 57% |
+| Scabies, bites and infestations | 58% |
+| Skin cancer or pre-cancer | 70% |
+| Benign growth, cyst or scar | 67% |
+| Nutritional or systemic disease signs | 45% |
+| Hives (urticaria) | 60% |
+| Vascular lesion | 64% |
+| Drug reaction, viral rash or vasculitis | 49% |
+| Warts and molluscum | 69% |
 
-Healthy-skin examples are patches cut from around the lesions in HAM10000 photos (using the dataset's lesion
-outlines), so they are dermoscopy close-ups too. The healthy score above is therefore optimistic for other
-kinds of photos; those are handled by the photo check below.
+Accuracy by source collection:
+
+| Source | Accuracy |
+|---|---|
+| Atlas (31 classes) | 84% |
+| DermNet | 62% |
+| Fitzpatrick17k | 56% |
+| Skin-infection set | 92% |
+| MSLD (healthy + rashes) | 73% |
+| Normal skin types | 100% |
 
 ### The melanoma warning
 
-The top answer alone names 54% of melanomas. The site also warns whenever the melanoma
-probability is 5.1% or more (threshold picked on validation data to catch at least
-80% of validation melanomas):
-
-| | HAM10000 test | ISIC 2018 test |
-|---|---|---|
-| Melanomas caught by the top answer | 54% | 60% |
-| Melanomas caught with the warning | 82% | 85% |
-| Other photos that also get a warning | 11% | 20% |
+The top answer alone names 62% of melanomas. The site also flags a photo whenever
+the melanoma probability is 7.5% or more (threshold picked on validation data to catch
+at least 80% of validation melanomas): that catches 78% of test melanomas, and
+1.9% of other photos also get the flag, to be safe.
 
 ### The photo check
 
-Before any diagnosis, the photo is compared with the training photos using a general ImageNet-trained
-EfficientNet-B0 (it knows everyday objects and scenes). Photos too unlike the training photos get
-"this doesn't look like a close-up skin photo" and no diagnosis. Threshold: keep 99.5% of validation photos.
+Before any result, a general ImageNet-trained EfficientNet-B0 (it knows everyday objects and scenes)
+describes the photo, and a small classifier trained on skin photos versus 6,000 everyday non-skin photos
+decides whether it is a photo of skin. If not, the site says "this doesn't look like a photo of skin" and
+gives no result. Threshold: keep 99.5% of validation skin photos.
 
-| | Rejected |
+| | Turned away |
 |---|---|
-| Real HAM10000 test lesion photos | 0.5% |
-| Healthy-skin test patches | 0% |
-| ISIC 2018 photos (separate collection) | 1.2% |
-| Non-skin images (45 built-in Windows wallpapers and images (landscapes, abstract art)) | 100% |
-
-The skin model's own features could not tell skin from non-skin (at most 58% of the non-skin images
-rejected; see `src/ood_experiment.py` in the comparison repo), which is why a general model is used.
-Ordinary phone photos of skin have not been tested, because no such labelled set was available.
+| Real test photos | 0.5% |
+| Healthy-face test photos | 1.4% |
+| Everyday non-skin photos held out from fitting (1,500 objects, animals, landscapes, streets) | 100% |
+| Non-skin images (45 built-in Windows wallpapers and images (landscapes, abstract art), never used for fitting) | 100% |
 <!-- numbers:end -->
 
 ## Accounts and privacy
@@ -144,19 +202,28 @@ python -m unittest discover -s tests -v
 app/server.py       web server (routes, cookies, security headers)
 app/auth.py         accounts and sessions (SQLite)
 app/predictor.py    photo check, classification of an in-memory image, Grad-CAM, melanoma warning
-app/models/         model.pt (8-class EfficientNet-B0, float16), general.pt (ImageNet EfficientNet-B0 for
+app/conditions.py   plain-language information and next steps for each of the 24 groups
+app/models/         model.pt (24-group EfficientNet-B0, float16), general.pt (ImageNet EfficientNet-B0 for
                     the photo check), ood.npz (photo-check statistics), meta.json (scores, thresholds)
 app/static/         the web page, sample photos, confusion matrix
 tests/              automated tests
 ```
 
-The model and its scores are exported from the comparison project with `src/export_single_model.py`.
+The dataset is built with `src/clinical_prepare.py`, the models are trained with
+`src/clinical_run_all.py`, and the chosen model and its scores are exported with
+`src/export_clinical_model.py`, all in the comparison project.
 
 ## Limits
 
-Trained only on dermoscopy photos (taken through a skin magnifier), including its healthy-skin
-examples. Ordinary phone photos are usually turned away by the photo check rather than diagnosed, and
-have not been formally tested. It knows 7 lesion types and healthy skin, nothing else. This is a student
-project for education, **not a medical device**: anyone worried about a skin lesion should see a doctor.
+- It knows 23 broad groups and healthy skin, nothing else, and only says which group a photo looks most
+  like. Many skin conditions look alike, so the top answers together are more informative than the first.
+- Most training photos come from medical image libraries and textbooks (DermNet, Fitzpatrick17k, a
+  dermatology atlas); everyday phone photos, poor light or unusual angles can be harder.
+- The healthy-skin examples are mostly stock photos of faces and close-ups of normal skin.
+- This is a student project for education, **not a medical device**: anyone worried about their skin
+  should see a doctor.
 
-Data: HAM10000 (Tschandl et al., 2018, CC BY-NC 4.0) and the ISIC 2018 Task 3 test set.
+Data: DermNet (Kaggle `shubhamgoel27/dermnet`), Fitzpatrick17k (Groh et al., 2021), "31 classes of skin
+disease" (Kaggle `kelixo25`, atlas + ISIC 2019 images, incl. leprosy), Skin-Disease-Dataset (Kaggle
+`subirbiswas19`), MSLD v2.0 (Kaggle `joydippaul`) and Oily/Dry/Normal skin types (Kaggle
+`shakyadissanayake`). These datasets are for research and education.

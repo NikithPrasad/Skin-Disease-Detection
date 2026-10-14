@@ -2,7 +2,7 @@
 
 const $ = (id) => document.getElementById(id);
 const state = { user: null, info: null, mode: "signup", previewUrl: null, requestId: 0 };
-const UNSURE_BELOW = 0.5;   // top match under 50%: the AI is not confident
+const UNSURE_BELOW = 0.3;   // top match under 30%: right only ~30% of the time on validation photos
 const MIN_ANALYSIS_MS = 1100; // keep the "looking at your image" steps on screen long enough to read
 const CONSIDER = "Consider discussing this result with a qualified healthcare professional";
 const SIMILAR = "Because some skin conditions can look similar, a qualified healthcare professional can look at it properly and tell you for sure.";
@@ -223,19 +223,20 @@ function anotherImageButton() {
 function renderRejected() {
   $("result").replaceChildren(
     el("p", { class: "match-label", text: "We couldn't analyse this image" }),
-    el("h3", { class: "match-name", text: "This doesn't look like a close-up of skin" }),
-    el("p", { class: "muted", text: "The AI learned from close-up images of skin spots, like those taken in a skin clinic. This image looks different, so rather than guess, we've stopped here." }),
+    el("h3", { class: "match-name", text: "This doesn't look like a photo of skin" }),
+    el("p", { class: "muted", text: "The AI learned from photos of skin, nails, hair and scalp. This image looks different, so rather than guess, we've stopped here." }),
     el("div", { class: "block" }, el("h3", { text: "For a better result" }),
       el("ul", { class: "tips" },
-        el("li", { text: "Take the image close up, with the skin spot in the middle and filling most of the picture." }),
+        el("li", { text: "Take the photo fairly close, with the affected skin in the middle and filling most of the picture." }),
         el("li", { text: "Use good, even light and keep the camera steady and in focus." }),
-        el("li", { text: "If a spot is worrying you, a doctor can examine it properly with a skin magnifier." }))),
+        el("li", { text: "If something is worrying you, a doctor can examine it properly." }))),
     anotherImageButton());
 }
 
 // ---------- result ----------
 function confidence(p) {
-  const level = p >= 0.7 ? ["High", 3] : p >= UNSURE_BELOW ? ["Moderate", 2] : ["Low", 1];
+  // On validation photos the top answer was right 90% of the time at 50%+ and ~30% below 30%
+  const level = p >= 0.5 ? ["High", 3] : p >= UNSURE_BELOW ? ["Moderate", 2] : ["Low", 1];
   const meter = el("span", { class: "meter", "aria-hidden": "true" }, ...[1, 2, 3].map((i) => el("span", { class: i <= level[1] ? "on" : "" })));
   return el("span", { class: "chip neutral" }, meter, `${level[0]} confidence (${whole(p)})`);
 }
@@ -244,19 +245,19 @@ function render(r, truth) {
   const m = state.info, info = m.classes[r.top], care = info.care, top = r.probs[0], second = r.probs[1];
   const healthy = r.top === "healthy";
   let concern = care.level !== "selfcare", why = "", steps = care.steps, treatment = care.treatment;
-  if (r.melanoma_warning && r.top !== "mel") {
-    const pMel = r.probs.find((p) => p.code === "mel").p;
+  if (r.melanoma_warning && r.top !== "melanoma") {
+    const pMel = r.probs.find((p) => p.code === "melanoma").p;
     concern = true;
     why = `It most closely matches ${lower(r.top)}, but it also shares some features with melanoma (${whole(pMel)} match).`;
-    steps = m.classes.mel.care.steps;
-    treatment = m.classes.mel.care.treatment;
+    steps = m.classes.melanoma.care.steps;
+    treatment = m.classes.melanoma.care.treatment;
   } else if (!concern && top.p < UNSURE_BELOW) {
     concern = true;
     why = `The AI isn't confident about this image. It could also be ${lower(second.code)} (${whole(second.p)} match).`;
   }
 
   const chip = concern ? el("span", { class: "chip info", text: "Worth discussing with a professional" })
-    : healthy ? el("span", { class: "chip ok", text: "No skin spot found" })
+    : healthy ? el("span", { class: "chip ok", text: "No skin condition found" })
     : el("span", { class: "chip ok", text: "Appears less concerning" });
 
   const next = el("div", { class: "next " + (concern ? "info" : "ok") },
@@ -265,7 +266,7 @@ function render(r, truth) {
     el("p", {}, el("b", { text: "What you can do now" })),
     el("ol", { class: "steps" }, ...steps.map((s) => el("li", { text: s }))));
 
-  const bars = r.probs.map((p) => {
+  const bars = r.probs.slice(0, 5).map((p) => {
     const fill = el("span", { class: "fill" + (p.code === r.top ? " lead" : "") });
     fill.style.width = (p.p * 100).toFixed(1) + "%";
     return el("div", { class: "bar" }, el("span", { class: "lab", text: className(p.code) }),
@@ -280,6 +281,7 @@ function render(r, truth) {
 
     el("div", { class: "block" }, el("h3", { text: "What this means" }),
       el("p", { text: info.about }),
+      info.examples ? el("p", { class: "muted", text: `This group includes: ${info.examples}.` }) : null,
       healthy ? null : el("p", { text: `It typically looks like ${care.looks}. These are general signs, not something the AI measured.` })),
 
     next,
@@ -287,7 +289,7 @@ function render(r, truth) {
     healthy ? null : el("div", { class: "block" }, el("h3", { text: "How it's usually managed" }), el("p", { text: treatment })),
 
     el("div", { class: "block" }, el("h3", { text: "When to talk to a doctor" }),
-      el("p", { text: "Whatever the result, it's worth talking to a doctor if a skin spot:" }),
+      el("p", { text: "Whatever the result, it's worth talking to a doctor if a skin problem:" }),
       el("ul", { class: "signs" }, ...m.urgent_signs.map((s) => el("li", { text: s.replace(/^It /, "") })))),
 
     el("details", { class: "fold" }, el("summary", { text: "See where the AI looked" }),
@@ -295,9 +297,9 @@ function render(r, truth) {
         el("img", { src: r.attention, alt: "Your image, with the areas the AI paid less attention to dimmed" }),
         el("div", {},
           el("p", { text: "The brighter area is the part of your image that most influenced the result. The rest is dimmed." }),
-          el("p", { text: "If the bright area isn't on the skin spot itself, the result is less reliable." })))),
+          el("p", { text: "If the bright area isn't on the affected skin, the result is less reliable." })))),
 
-    el("details", { class: "fold" }, el("summary", { text: "See all possibilities" }),
+    el("details", { class: "fold" }, el("summary", { text: "See the top 5 possibilities" }),
       el("div", { class: "bars" }, ...bars)),
 
     el("p", { class: "disclaimer" }, el("b", { text: "This is an AI-based prediction, not a medical diagnosis. " }),
@@ -311,23 +313,23 @@ function renderAccuracy(m) {
   const stat = (big, small) => el("div", { class: "stat" }, el("b", { text: big }), el("span", { text: small }));
   const pc = m.photo_check;
   $("acc-stats").replaceChildren(
-    stat(whole(m.test.accuracy), "of test images were matched to the confirmed answer"),
+    stat(whole(m.test.accuracy), "of test photos were matched to the confirmed group"),
+    stat(whole(m.test.top3_accuracy), "had the confirmed group among the AI's top 3 answers"),
     stat(whole(m.test.melanoma_recall_with_warning), "of melanomas were flagged as worth discussing with a professional"),
     stat(whole(pc.rejected_non_skin), "of non-skin images were recognised and not analysed"));
   $("warn-stats").replaceChildren(
     stat(whole(m.test.melanoma_recall_top_answer), "named as the closest match"),
     stat(whole(m.test.melanoma_recall_with_warning), "flagged, including shared features"),
     stat(whole(m.test.warning_on_non_melanoma), "of other images also flagged, to be safe"));
-  $("warn-text").textContent = `Melanoma can look like other skin spots. So as well as the closest match, the AI flags any image that shares even a few features with melanoma ` +
+  $("warn-text").textContent = `Melanoma can look like other skin conditions. So as well as the closest match, the AI flags any image that shares even a few features with melanoma ` +
     `(${pct(m.melanoma_threshold)} or more) as worth discussing with a professional. It's better to be careful.`;
   $("check-stats").replaceChildren(
     stat(whole(pc.rejected_non_skin), `of ${pc.non_skin_images} non-skin images set aside`),
-    stat(whole(pc.rejected_test_lesions), "of real skin images set aside by mistake"));
+    stat(whole(pc.rejected_test_photos), "of real skin photos set aside by mistake"));
 
-  const head = el("tr", {}, el("th", { text: "Type" }), el("th", { text: "Test set 1" }), el("th", { text: "Test set 2" }));
+  const head = el("tr", {}, el("th", { text: "Group" }), el("th", { text: "Matched correctly" }));
   const rows = Object.keys(m.test.per_class_recall).map((c) => el("tr", {}, el("td", { text: className(c) }),
-    el("td", { text: whole(m.test.per_class_recall[c]) }),
-    el("td", { text: c in m.external.per_class_recall ? whole(m.external.per_class_recall[c]) : "not tested" })));
+    el("td", { text: whole(m.test.per_class_recall[c]) })));
   $("recall-table").replaceChildren(el("thead", {}, head), el("tbody", {}, ...rows));
 }
 

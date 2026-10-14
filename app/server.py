@@ -1,4 +1,4 @@
-"""Skin disease detection website: sign in, upload a skin-lesion photo, get the model's assessment.
+"""Skin disease detection website: sign in, upload a photo of skin, get the model's assessment.
 
 Runs on CPU by default, so no GPU, internet connection or API key is needed.
 
@@ -20,7 +20,8 @@ from pathlib import Path
 import torch
 
 from auth import SESSION_DAYS, AuthError, UserStore
-from predictor import CLASS_INFO, GUIDANCE, SERIOUS, URGENT_SIGNS, InvalidImage, Predictor
+from conditions import CONDITIONS, URGENT_SIGNS
+from predictor import InvalidImage, Predictor
 
 APP = Path(__file__).resolve().parent
 MAX_UPLOAD = 20 * 1024 * 1024
@@ -96,8 +97,10 @@ class Handler(SimpleHTTPRequestHandler):
         if self.path == "/api/info":
             p = self.predictor
             return self.send_json({**p.meta, "device": "GPU" if p.device.type == "cuda" else "CPU",
-                                   "classes": {c: {"name": n, "about": a, "serious": c in SERIOUS, "care": GUIDANCE[c]}
-                                               for c, (n, a) in CLASS_INFO.items()},
+                                   "classes": {c: {"name": CONDITIONS[c]["name"], "about": CONDITIONS[c]["about"],
+                                                   "examples": CONDITIONS[c]["examples"],
+                                                   "serious": CONDITIONS[c]["level"] != "selfcare", "care": CONDITIONS[c]}
+                                               for c in p.meta["classes"]},
                                    "urgent_signs": URGENT_SIGNS})
         if self.path == "/api/me":
             user = self.current_user()

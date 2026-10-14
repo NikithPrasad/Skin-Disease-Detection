@@ -41,12 +41,12 @@ def png_with_marker(marker):
 class FakePredictor:
     """Stands in for the real models so server tests run in milliseconds."""
     device = type("D", (), {"type": "cpu"})()
-    meta = {"melanoma_threshold": 0.05}
+    meta = {"melanoma_threshold": 0.05, "classes": ["acne", "melanoma", "healthy"]}
 
     def predict(self, image_bytes):
         from predictor import preprocess  # still exercises real decoding / validation
         preprocess(image_bytes)
-        return {"top": "nv", "ms": 0.1, "melanoma_warning": False, "probs": [{"code": "nv", "p": 1.0}]}
+        return {"top": "acne", "ms": 0.1, "melanoma_warning": False, "probs": [{"code": "acne", "p": 1.0}]}
 
 
 class UserStoreTests(unittest.TestCase):
@@ -204,6 +204,12 @@ class ServerTests(unittest.TestCase):
         res, _ = self.request("POST", "/api/signup", {"username": "alice", "password": "correct horse"}, csrf=False)
         self.assertEqual(res.status, 403)
 
+    def test_info_lists_every_group(self):
+        res, data = self.request("GET", "/api/info")
+        self.assertEqual(res.status, 200)
+        self.assertEqual(list(data["classes"]), self.predictor.meta["classes"])
+        self.assertTrue(all(c["name"] and c["care"]["steps"] for c in data["classes"].values()))
+
     def test_predict_requires_login(self):
         res, data = self.request("POST", "/api/predict", png_with_marker("x"))
         self.assertEqual(res.status, 401)
@@ -213,7 +219,7 @@ class ServerTests(unittest.TestCase):
         res, data = self.request("POST", "/api/predict", png_with_marker("x"), cookie=cookie)
         self.assertEqual(res.status, 200)
         self.assertEqual(res.getheader("Cache-Control"), "no-store")
-        self.assertEqual(data["results"]["top"], "nv")
+        self.assertEqual(data["results"]["top"], "acne")
 
     def test_bad_uploads(self):
         cookie = self.signup()
@@ -250,13 +256,17 @@ class ServerTests(unittest.TestCase):
 
 
 class GuidanceTests(unittest.TestCase):
-    def test_every_lesion_type_has_advice(self):
-        from predictor import CLASSES, GUIDANCE, URGENT_SIGNS
-        self.assertEqual(set(GUIDANCE), set(CLASSES))
-        for code, g in GUIDANCE.items():
+    def test_every_condition_group_has_advice(self):
+        from conditions import CONDITIONS, URGENT_SIGNS
+        from predictor import CLASSES
+        self.assertEqual(set(CONDITIONS), set(CLASSES))
+        for code, g in CONDITIONS.items():
             self.assertIn(g["level"], {"urgent", "doctor", "selfcare"}, code)
-            self.assertTrue(g["headline"] and g["looks"] and g["treatment"] and len(g["steps"]) >= 2, code)
-        self.assertEqual(GUIDANCE["mel"]["level"], "urgent")  # melanoma always means see a doctor
+            self.assertTrue(g["name"] and g["about"] and g["headline"] and g["looks"] and g["treatment"]
+                            and len(g["steps"]) >= 2, code)
+        self.assertEqual(CONDITIONS["melanoma"]["level"], "urgent")  # melanoma always means see a doctor
+        for code in ["cancer", "leprosy"]:
+            self.assertNotEqual(CONDITIONS[code]["level"], "selfcare", code)
         self.assertTrue(URGENT_SIGNS)
 
 
@@ -271,7 +281,7 @@ class RealModelTests(ServerTests):
 
     def test_predict(self):
         cookie = self.signup()
-        for code in ["mel", "nv", "healthy"]:
+        for code in self.predictor.meta["classes"]:  # one example photo per group
             image = (ROOT / "app" / "static" / "examples" / f"{code}.jpg").read_bytes()
             res, data = self.request("POST", "/api/predict", image, cookie=cookie)
             self.assertEqual(res.status, 200)
@@ -293,9 +303,9 @@ class RealModelTests(ServerTests):
         self.assertNotIn("top", r)  # no diagnosis at all
 
     def test_melanoma_warning_uses_threshold(self):
-        image = (ROOT / "app" / "static" / "examples" / "mel.jpg").read_bytes()
+        image = (ROOT / "app" / "static" / "examples" / "melanoma.jpg").read_bytes()
         r = self.predictor.predict(image)
-        p_mel = next(p["p"] for p in r["probs"] if p["code"] == "mel")
+        p_mel = next(p["p"] for p in r["probs"] if p["code"] == "melanoma")
         self.assertEqual(r["melanoma_warning"], p_mel >= self.predictor.meta["melanoma_threshold"])
         self.assertTrue(r["melanoma_warning"])
 
