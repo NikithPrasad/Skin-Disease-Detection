@@ -255,6 +255,65 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(leaks, [], "uploaded photo found on disk")
 
 
+class GeminiTests(ServerTests):
+    """The optional Gemini second opinion, with Gemini itself replaced by a fake (no internet)."""
+
+    def setUp(self):
+        super().setUp()
+        import server
+        self.calls = []
+        def fake_ask(jpeg):
+            self.calls.append(jpeg)
+            return {"group": "melanoma", "condition": "melanoma", "description": "d", "harm": "serious",
+                    "harm_reason": "r", "confidence": 0.9, "model": "fake"}
+        patcher = mock.patch.object(server.Handler, "ask_gemini", staticmethod(fake_ask))
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def test_gemini_only_when_asked(self):
+        cookie = self.signup()
+        res, data = self.request("POST", "/api/predict", png_with_marker("x"), cookie=cookie)
+        self.assertEqual(res.status, 200)
+        self.assertNotIn("gemini", data["results"])
+        self.assertEqual(self.calls, [])  # the photo was not sent anywhere
+
+    def test_gemini_second_opinion_is_combined(self):
+        cookie = self.signup()
+        res, data = self.request("POST", "/api/predict?gemini=1", png_with_marker("x"), cookie=cookie)
+        self.assertEqual(res.status, 200)
+        g = data["results"]["gemini"]
+        self.assertEqual(len(self.calls), 1)
+        self.assertEqual(self.calls[0][:2], bytes([0xFF, 0xD8]))  # re-encoded as JPEG (drops metadata)
+        self.assertEqual(g["combined_top"], g["combined"][0]["code"])
+        self.assertFalse(g["agree"])  # fake model said acne, fake Gemini melanoma
+        self.assertAlmostEqual(sum(p["p"] for p in g["combined"]), 1.0, places=2)
+
+    def test_gemini_failure_still_gives_model_result(self):
+        import gemini, server
+        def failing(jpeg):
+            raise gemini.GeminiError("offline")
+        with mock.patch.object(server.Handler, "ask_gemini", staticmethod(failing)):
+            cookie = self.signup()
+            res, data = self.request("POST", "/api/predict?gemini=1", png_with_marker("x"), cookie=cookie)
+        self.assertEqual(res.status, 200)
+        self.assertEqual(data["results"]["top"], "acne")
+        self.assertEqual(data["results"]["gemini"], {"error": "offline"})
+
+    def test_combine_weights_both_answers(self):
+        import gemini
+        probs = [{"code": "acne", "p": 0.6}, {"code": "melanoma", "p": 0.4}]
+        answer = {"group": "melanoma", "confidence": 1.0}
+        self.assertEqual(gemini.combine(probs, answer, 0)[0]["code"], "acne")
+        self.assertEqual(gemini.combine(probs, answer, 0.5)[0]["code"], "melanoma")
+
+    def test_api_key_is_never_committed(self):
+        import subprocess
+        tracked = subprocess.run(["git", "ls-files"], cwd=ROOT, capture_output=True, text=True).stdout
+        self.assertNotIn("gemini_api_key", tracked)
+        ignored = subprocess.run(["git", "check-ignore", "app/data/gemini_api_key.txt"], cwd=ROOT, capture_output=True)
+        self.assertEqual(ignored.returncode, 0)
+
+
 class GuidanceTests(unittest.TestCase):
     def test_every_condition_group_has_advice(self):
         from conditions import CONDITIONS, URGENT_SIGNS

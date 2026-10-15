@@ -262,6 +262,20 @@ dialog p { color: var(--ink-2); margin: 10px 0 18px; }
 .toast { position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%); background: var(--ink); color: #fff; padding: 14px 20px;
          border-radius: var(--r-ctl); font-size: 17px; z-index: 40; box-shadow: var(--shadow); animation: rise .3s var(--ease) both; }
 
+/* Gemini second opinion */
+.consent { display: flex; gap: 12px; align-items: flex-start; margin-top: 16px; padding: 14px 16px; border: 1px solid var(--line);
+           border-radius: var(--r-ctl); background: var(--surface-2); cursor: pointer; font-size: 17px; }
+.consent input { width: 22px; height: 22px; margin: 3px 0 0; accent-color: var(--accent); flex: none; }
+.consent .small { display: block; margin-top: 4px; }
+.harm { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.harm-scale { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; width: 220px; }
+.harm-scale span { height: 10px; border-radius: 4px; background: var(--line); }
+.harm-scale span.on { background: var(--ink-2); }
+.harm-label { font-weight: 650; }
+.harm-ticks { display: grid; grid-template-columns: repeat(4, 1fr); width: 220px; font-size: 13px; color: var(--muted); margin-top: 4px; }
+.harm-reason { margin-top: 10px; }
+.gemini-note { margin-top: 14px; font-size: 16px; color: var(--muted); }
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
   html { scroll-behavior: auto; }

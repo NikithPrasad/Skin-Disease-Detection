@@ -6,12 +6,14 @@ Runs on CPU by default, so no GPU, internet connection or API key is needed.
     python app/server.py --gpu      use an NVIDIA GPU if one is available
 
 Privacy: uploaded photos are only held in memory while the models look at them and are
-discarded right after. They are never written to disk, never put in the database, never
-logged and never sent anywhere. The database (app/data/users.db) holds only usernames,
+discarded right after. They are never written to disk, never put in the database and never
+logged. They are sent nowhere, except to Google's Gemini API when the person ticks the optional
+second opinion for that photo (see gemini.py). The database (app/data/users.db) holds only usernames,
 password hashes and login sessions.
 """
 import argparse
 import json
+from urllib.parse import parse_qs, urlsplit
 import webbrowser
 from http import cookies
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
@@ -20,6 +22,7 @@ from pathlib import Path
 import torch
 
 from auth import SESSION_DAYS, AuthError, UserStore
+import gemini
 from conditions import CONDITIONS, URGENT_SIGNS
 from predictor import InvalidImage, Predictor
 
@@ -39,6 +42,7 @@ SECURITY_HEADERS = {
 
 class Handler(SimpleHTTPRequestHandler):
     predictor = None
+    ask_gemini = staticmethod(gemini.ask)  # replaced by a fake in tests
     users = None
 
     def __init__(self, *args, **kwargs):
@@ -97,6 +101,7 @@ class Handler(SimpleHTTPRequestHandler):
         if self.path == "/api/info":
             p = self.predictor
             return self.send_json({**p.meta, "device": "GPU" if p.device.type == "cuda" else "CPU",
+                                   "gemini_available": gemini.available(),
                                    "classes": {c: {"name": CONDITIONS[c]["name"], "about": CONDITIONS[c]["about"],
                                                    "examples": CONDITIONS[c]["examples"],
                                                    "serious": CONDITIONS[c]["level"] != "selfcare", "care": CONDITIONS[c]}
@@ -123,7 +128,9 @@ class Handler(SimpleHTTPRequestHandler):
             "/api/signup": self.signup, "/api/login": self.login, "/api/logout": self.logout,
             "/api/delete-account": self.delete_account, "/api/predict": self.predict,
         }
-        handler = routes.get(self.path)
+        url = urlsplit(self.path)
+        self.query = parse_qs(url.query)
+        handler = routes.get(url.path)
         if handler is None:
             return self.send_json({"error": "Not found."}, 404)
         return handler()
@@ -178,12 +185,26 @@ class Handler(SimpleHTTPRequestHandler):
             return self.send_json({"error": "Please upload an image under 20 MB."}, 400)
         try:
             results = self.predictor.predict(image)
+            # Second opinion only if the person asked for it for this photo, and only for photos
+            # that passed the photo check. The photo then goes to Google's Gemini API.
+            if self.query.get("gemini") == ["1"] and not results.get("rejected"):
+                results["gemini"] = self.second_opinion(image, results)
         except InvalidImage:
             return self.send_json({"error": "That file isn't an image this app can read. Try a JPG or PNG."}, 400)
         finally:
             del image  # the photo exists only in memory, only for this request
             self.body = b""
         return self.send_json({"results": results})
+
+    def second_opinion(self, image, results):
+        try:
+            answer = self.ask_gemini(gemini.to_jpeg(image))
+        except gemini.GeminiError as e:
+            return {"error": str(e)}
+        weight = self.predictor.meta.get("gemini", {}).get("weight", 0.5)
+        combined = gemini.combine(results["probs"], answer, weight)
+        return {**answer, "combined": combined[:5], "combined_top": combined[0]["code"],
+                "agree": answer["group"] == results["top"]}
 
 
 def make_server(predictor, users, port=8000, host="127.0.0.1"):

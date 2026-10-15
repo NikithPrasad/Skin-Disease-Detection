@@ -40,7 +40,7 @@
           <a class="btn primary big" href="#check" id="hero-cta">Check a skin concern</a>
           <a class="text-link" href="#how">See how it works</a>
         </div>
-        <p class="assure-line">Your image is processed securely on this computer and is not used to identify you.</p>
+        <p class="assure-line">Your image is checked on this computer and never saved. A second opinion from Google Gemini is available if you choose it.</p>
       </div>
 
       <figure class="hero-photo">
@@ -53,7 +53,7 @@
   <section class="wrap reassure" aria-label="Our promises">
     <div><h2>You're in control</h2><p>You choose what to upload, and you can remove an image or delete your account at any time.</p></div>
     <div><h2>Results in simple language</h2><p>No medical jargon. Every result explains what it means and what you can do next.</p></div>
-    <div><h2>Your privacy matters</h2><p>Images are checked on this computer, never saved and never sent over the internet.</p></div>
+    <div><h2>Your privacy matters</h2><p>Images are checked on this computer and never saved. Nothing goes online unless you choose the Gemini second opinion.</p></div>
     <div><h2>One piece of information</h2><p>An AI prediction can help you prepare, but only a healthcare professional can diagnose.</p></div>
   </section>
 
@@ -144,7 +144,12 @@
               <button class="btn primary big" id="choose" type="button">Choose an image</button>
               <button class="btn ghost big" id="clear" type="button" hidden>Remove image</button>
             </div>
-            <p class="small muted">Your image is checked on this computer and is not saved.</p>
+            <p class="small muted" id="local-note">Your image is checked on this computer and is not saved.</p>
+            <label class="consent" id="gemini-opt" hidden>
+              <input type="checkbox" id="gemini-check">
+              <span><b>Also ask Google Gemini for a second opinion</b>
+                <span class="small muted">For this check your photo is also sent over the internet to Google's Gemini AI. Google's terms apply and it may be kept by Google. Leave this unticked to keep your photo on this computer.</span></span>
+            </label>
             <details class="examples-box">
               <summary>No image? Try an example</summary>
               <p class="small muted">These are example photos from public research datasets. Choosing one shows that image.</p>
@@ -164,7 +169,8 @@
               <ul class="progress-list">
                 <li data-p="0">Checking it's a photo of skin</li>
                 <li data-p="1">Analysing it with an AI model trained on about 36,000 photos</li>
-                <li data-p="2">Preparing a simple explanation</li>
+                <li data-p="2" id="gemini-step" hidden>Asking Google Gemini for a second opinion</li>
+                <li data-p="3">Preparing a simple explanation</li>
               </ul>
             </div>
             <article class="panel result" id="result" hidden tabindex="-1"></article>
@@ -245,7 +251,7 @@
       <h2 class="section-title" id="privacy-title">Your privacy</h2>
       <p class="lede narrow">Here is exactly what happens to your image and your account.</p>
       <div class="privacy-grid">
-        <div class="panel"><h3>Your image stays on this computer</h3><p>The AI runs on this computer. Your image is never sent over the internet, and there is no cloud service or tracking.</p></div>
+        <div class="panel"><h3>Your image stays on this computer</h3><p>The AI runs on this computer. Your image is not sent over the internet, and there is no tracking. The one exception is the optional Gemini second opinion: only if you tick that box, that photo is also sent to Google's Gemini AI, where Google's terms apply.</p></div>
         <div class="panel"><h3>Your image is not saved</h3><p>It is held in memory only while it is being analysed, then discarded. It is never written to disk or stored in a database, and it is never used to train the AI. Automated tests check this.</p></div>
         <div class="panel"><h3>Keep images anonymous</h3><p>If you can, crop out your eyes, tattoos, jewellery or anything else that could identify you. A photo of just the affected area works best anyway.</p></div>
         <div class="panel"><h3>Your account</h3><p>We store only your username, a protected (hashed) password and your sign-in session, all on this computer.</p>

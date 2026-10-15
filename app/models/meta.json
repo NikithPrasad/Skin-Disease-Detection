@@ -153,5 +153,39 @@
   "vascular": "lymphangioma-cir",
   "rash": "erythema-infecti",
   "warts": "warts-plantar-58"
- }
+ },
+ "gemini": {
+  "model": "gemini-flash-lite-latest",
+  "weight": 0.1,
+  "test": {
+   "n": 72,
+   "model": 0.7083333333333334,
+   "gemini": 0.4722222222222222,
+   "combined": 0.6944444444444444,
+   "combined_top3": 0.7916666666666666,
+   "model_top3": 0.7777777777777778,
+   "agree": 0.5,
+   "accuracy_when_agree": 0.8611111111111112,
+   "accuracy_when_differ": 0.5277777777777778,
+   "errors": 0
+  },
+  "per_group": 3
+ },
+ "accuracy_by_confidence": [
+  {
+   "from": 0.5,
+   "to": 1.0,
+   "accuracy": 0.9007326007326008
+  },
+  {
+   "from": 0.3,
+   "to": 0.5,
+   "accuracy": 0.5300171526586621
+  },
+  {
+   "from": 0.0,
+   "to": 0.3,
+   "accuracy": 0.30198019801980197
+  }
+ ]
 }

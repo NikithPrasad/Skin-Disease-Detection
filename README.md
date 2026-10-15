@@ -3,13 +3,15 @@
 A calm, simple local website that helps people understand a skin concern. Upload an ordinary photo of
 skin, nails or scalp and an **EfficientNet-B0** model gives an AI-based indication of which of
 **23 groups of common skin, hair and nail conditions** (or healthy skin) it most closely matches,
-explained in plain language with practical next steps. Runs on any laptop: no GPU, no internet, no API key.
+explained in plain language with practical next steps. Runs on any laptop with no GPU, no internet
+and no API key; an optional second opinion from Google Gemini can be switched on per photo.
 
 **This is an awareness tool, not a medical diagnosis.** It never tells anyone they have a disease, and it
 never decides for them whether to see a doctor.
 
 **Images are never saved.** Each upload is analysed in memory on the same computer and discarded straight
-after; nothing is written to disk, stored in a database or sent anywhere.
+after; nothing is written to disk or stored in a database. Nothing is sent anywhere unless the person
+ticks the optional Gemini second opinion for that photo (see below).
 
 The model was chosen from a fair comparison of four architectures:
 [Skin-Disease-Model-Comparison](https://github.com/NikithPrasad/Skin-Disease-Model-Comparison).
@@ -52,6 +54,41 @@ its closest group for them.
 
 Each result shows the closest group, the top answers with their percentages, what the group means,
 how it is usually managed and what the person can do now.
+
+## Optional second opinion from Google Gemini
+
+Each check can also ask **Google Gemini** (a general AI that can read images). It is **off unless the
+person ticks the box for that photo**, because the photo is then sent over the internet to Google (Google's
+terms apply). Photos the photo check turns away are never sent. Gemini is asked independently (it is not
+told the model's answer) and must reply in a fixed format: one of the same 24 groups, the most likely
+specific condition, a plain-language description, how harmful it usually is, and its confidence.
+
+The person sees **one combined answer** with **one estimated-accuracy figure**, not two competing opinions.
+Measured on 72 test photos (3 per group) the AI never trained on, with `gemini-flash-lite-latest`:
+
+| | Right answer |
+|---|---|
+| SkinCheck model alone | 71% |
+| Gemini alone | 47% |
+| Combined (model + 0.1 x Gemini's confidence on its group; weight chosen on 72 validation photos) | 69% |
+| Combined answer when both point to the same group (half of the photos) | 86% |
+| Combined answer when they point to different groups | 53% |
+
+So Gemini does not make the answer more accurate on its own: the specialised model is better at these 24
+groups (the full Gemini Flash scored similarly, 8 of 17 photos, before its free daily limit of 20 requests
+ran out). What it adds is a reliable sign of how much to trust each answer (the "estimated accuracy"
+shown with the result), the name of the most likely specific condition and a description of the photo.
+Without Gemini, the estimated accuracy comes from the model's own confidence, measured on validation
+photos (top answer right 90% of the time at 50%+, 53% at 30 to 50%, 30% below 30%).
+
+**Harmfulness**: every result shows how harmful the condition usually is on a 4-step scale (harmless,
+mild, moderate, serious) with a one-line reason; if Gemini rates the photo as more serious than usual for
+that group, the more serious rating is shown.
+
+**The API key** is never in this repository: `setup.bat` asks for it once and saves it in
+`app/data/gemini_api_key.txt` (excluded from git; a test checks this), or set the `GEMINI_API_KEY`
+environment variable. Without a key the site works exactly as before, with the Gemini box hidden.
+Evaluation script: `src/gemini_eval.py` in the comparison project.
 
 ## Design
 
@@ -202,7 +239,8 @@ python -m unittest discover -s tests -v
 app/server.py       web server (routes, cookies, security headers)
 app/auth.py         accounts and sessions (SQLite)
 app/predictor.py    photo check, classification of an in-memory image, Grad-CAM, melanoma warning
-app/conditions.py   plain-language information and next steps for each of the 24 groups
+app/conditions.py   plain-language information, harmfulness and next steps for each of the 24 groups
+app/gemini.py       optional Gemini second opinion (standard-library HTTPS call) and the combination rule
 app/models/         model.pt (24-group EfficientNet-B0, float16), general.pt (ImageNet EfficientNet-B0 for
                     the photo check), ood.npz (photo-check statistics), meta.json (scores, thresholds)
 app/static/         the web page, sample photos, confusion matrix

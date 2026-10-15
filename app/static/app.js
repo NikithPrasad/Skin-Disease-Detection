@@ -2,7 +2,6 @@
 
 const $ = (id) => document.getElementById(id);
 const state = { user: null, info: null, mode: "signup", previewUrl: null, requestId: 0 };
-const UNSURE_BELOW = 0.3;   // top match under 30%: right only ~30% of the time on validation photos
 const MIN_ANALYSIS_MS = 1100; // keep the "looking at your image" steps on screen long enough to read
 const CONSIDER = "Consider discussing this result with a qualified healthcare professional";
 const SIMILAR = "Because some skin conditions can look similar, a qualified healthcare professional can look at it properly and tell you for sure.";
@@ -198,7 +197,9 @@ async function check(blob, truth) {
   $("placeholder").hidden = true; $("result").hidden = true; $("analysing").hidden = false;
   setStep(2);
   try {
-    const [data] = await Promise.all([api("/api/predict", { body: blob }), showProgress(id)]);
+    const withGemini = state.info?.gemini_available && $("gemini-check").checked;
+    $("gemini-step").hidden = !withGemini;
+    const [data] = await Promise.all([api("/api/predict" + (withGemini ? "?gemini=1" : ""), { body: blob }), showProgress(id)]);
     if (id !== state.requestId) return;
     $("analysing").hidden = true;
     if (data.results.rejected) renderRejected(); else render(data.results, truth);
@@ -234,24 +235,51 @@ function renderRejected() {
 }
 
 // ---------- result ----------
-function confidence(p) {
-  // On validation photos the top answer was right 90% of the time at 50%+ and ~30% below 30%
-  const level = p >= 0.5 ? ["High", 3] : p >= UNSURE_BELOW ? ["Moderate", 2] : ["Low", 1];
+
+const HARM = ["harmless", "mild", "moderate", "serious"];
+function harmBlock(level, reason) {
+  const cap = (t) => t.charAt(0).toUpperCase() + t.slice(1);
+  return el("div", { class: "block" }, el("h3", { text: "How harmful is it usually?" }),
+    el("div", { class: "harm" },
+      el("span", { class: "harm-scale", "aria-hidden": "true" }, ...HARM.map((h, i) => el("span", { class: i <= HARM.indexOf(level) ? "on" : "" }))),
+      el("span", { class: "harm-label", text: cap(level) })),
+    el("div", { class: "harm-ticks", "aria-hidden": "true" }, ...HARM.map((h) => el("span", { text: h }))),
+    el("p", { class: "harm-reason", text: reason }));
+}
+
+// One accuracy figure for the answer shown, measured on photos the AI never trained on:
+// with Gemini, how often the combined answer was right in the same situation (both AIs pointing
+// the same way or not); without Gemini, how often the model was right at this confidence level.
+function estimatedAccuracy(r, g) {
+  const m = state.info;
+  if (g && m.gemini?.test) return g.agree ? m.gemini.test.accuracy_when_agree : m.gemini.test.accuracy_when_differ;
+  const band = (m.accuracy_by_confidence || []).find((b) => r.probs[0].p >= b.from && r.probs[0].p < b.to + 1e-9);
+  return band ? band.accuracy : r.probs[0].p;
+}
+
+function accuracyChip(acc) {
+  const level = acc >= 0.8 ? ["High", 3] : acc >= 0.5 ? ["Moderate", 2] : ["Low", 1];
   const meter = el("span", { class: "meter", "aria-hidden": "true" }, ...[1, 2, 3].map((i) => el("span", { class: i <= level[1] ? "on" : "" })));
-  return el("span", { class: "chip neutral" }, meter, `${level[0]} confidence (${whole(p)})`);
+  return el("span", { class: "chip neutral" }, meter, `Estimated accuracy: ${whole(acc)}`);
 }
 
 function render(r, truth) {
-  const m = state.info, info = m.classes[r.top], care = info.care, top = r.probs[0], second = r.probs[1];
+  const m = state.info, g = r.gemini && !r.gemini.error ? r.gemini : null;
+  const acc = estimatedAccuracy(r, g);
+  if (g) { r = { ...r, top: g.combined_top, probs: g.combined }; }  // one combined answer
+  const info = m.classes[r.top], care = info.care, second = r.probs[1];
   const healthy = r.top === "healthy";
-  let concern = care.level !== "selfcare", why = "", steps = care.steps, treatment = care.treatment;
+  // Harmfulness: the more serious of the group's usual level and the AI's view of this photo
+  const gHarm = g && g.group === r.top ? g.harm : null;
+  const harm = gHarm && HARM.indexOf(gHarm) > HARM.indexOf(care.harm) ? [gHarm, g.harm_reason] : [care.harm, care.harm_reason];
+  let concern = care.level !== "selfcare" || harm[0] === "serious", why = "", steps = care.steps, treatment = care.treatment;
   if (r.melanoma_warning && r.top !== "melanoma") {
     const pMel = r.probs.find((p) => p.code === "melanoma").p;
     concern = true;
     why = `It most closely matches ${lower(r.top)}, but it also shares some features with melanoma (${whole(pMel)} match).`;
     steps = m.classes.melanoma.care.steps;
     treatment = m.classes.melanoma.care.treatment;
-  } else if (!concern && top.p < UNSURE_BELOW) {
+  } else if (!concern && acc < 0.5) {
     concern = true;
     why = `The AI isn't confident about this image. It could also be ${lower(second.code)} (${whole(second.p)} match).`;
   }
@@ -276,13 +304,18 @@ function render(r, truth) {
   $("result").replaceChildren(...[
     el("p", { class: "match-label", text: "Your image most closely matches" }),
     el("h3", { class: "match-name", text: info.name }),
-    el("div", { class: "chips" }, chip, confidence(top.p)),
+    g && g.group === r.top ? el("p", { class: "muted", text: `Most likely: ${g.condition}` }) : null,
+    el("div", { class: "chips" }, chip, accuracyChip(acc)),
     truth ? el("p", { class: "truth", text: truth === r.top ? "This matches the confirmed answer for this example." : `The confirmed answer for this example is ${className(truth)}.` }) : null,
+    r.gemini?.error ? el("p", { class: "gemini-note", text: `The Gemini check couldn't run this time (${r.gemini.error}) This result is from the SkinCheck model alone.` }) : null,
 
     el("div", { class: "block" }, el("h3", { text: "What this means" }),
       el("p", { text: info.about }),
+      g && g.group === r.top ? el("p", {}, el("b", { text: "In your photo: " }), g.description) : null,
       info.examples ? el("p", { class: "muted", text: `This group includes: ${info.examples}.` }) : null,
       healthy ? null : el("p", { text: `It typically looks like ${care.looks}. These are general signs, not something the AI measured.` })),
+
+    harmBlock(harm[0], harm[1]),
 
     next,
 
@@ -350,6 +383,7 @@ function renderExamples(info) {
     state.info = info;
     renderAccuracy(info);
     renderExamples(info);
+    $("gemini-opt").hidden = !info.gemini_available;
     setMode("signup");
     setUser(me.user);
   } catch {

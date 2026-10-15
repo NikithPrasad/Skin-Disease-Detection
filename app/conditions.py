@@ -9,6 +9,7 @@ the AI never decides for the user whether they need a doctor.
   treatment  how it is usually managed
   steps      what the person can do now
   examples   conditions inside the group, so people recognise names they have heard
+  harm       how harmful the group usually is: harmless / mild / moderate / serious, plus why
 """
 
 CONSIDER = "Consider discussing this result with a qualified healthcare professional"
@@ -16,6 +17,8 @@ MONITOR = "This result appears less concerning, but changes in your skin should 
 
 CONDITIONS = {
     "acne": {
+        "harm": "mild",
+        "harm_reason": "Uncomfortable and can leave marks, but not dangerous to health.",
         "name": "Acne, rosacea or clogged pores",
         "about": "Common conditions of the oil glands and hair follicles: blackheads, whiteheads, pimples, acne on the back or chest, and facial redness such as rosacea.",
         "examples": "acne, truncal acne, blackheads, rosacea, redness after long use of steroid creams",
@@ -28,6 +31,8 @@ CONDITIONS = {
                   "If you have been using a steroid cream on your face, ask a doctor or pharmacist before stopping or continuing it."],
     },
     "bacterial": {
+        "harm": "moderate",
+        "harm_reason": "Usually clears quickly with treatment, but can spread to others or deeper into the skin if left.",
         "name": "Bacterial skin infection",
         "about": "Skin infections caused by bacteria, such as impetigo (crusted, honey-coloured sores), infected hair follicles or cellulitis (warm, spreading redness).",
         "examples": "impetigo, folliculitis, cellulitis",
@@ -40,6 +45,8 @@ CONDITIONS = {
                   "Redness that spreads quickly, or fever, are good reasons to get help promptly."],
     },
     "blistering": {
+        "harm": "serious",
+        "harm_reason": "Some forms, such as pemphigus, can become severe without a doctor's treatment.",
         "name": "Blistering skin condition",
         "about": "A group of less common conditions that cause blisters or raw areas, some caused by the immune system (such as pemphigus) and some inherited.",
         "examples": "pemphigus, bullous pemphigoid, Hailey-Hailey disease, epidermolysis bullosa",
@@ -51,6 +58,8 @@ CONDITIONS = {
                   "Blisters in the mouth or eyes, or widespread blisters, are good reasons to get help promptly."],
     },
     "eczema": {
+        "harm": "mild",
+        "harm_reason": "Itchy and uncomfortable, but not dangerous; it can be kept under control.",
         "name": "Eczema or dermatitis",
         "about": "Itchy, inflamed skin. It includes eczema, reactions to things that touch the skin (contact allergy), dandruff-type rashes, and skin changes on the lower legs from poor circulation (stasis dermatitis).",
         "examples": "eczema, contact dermatitis, dermatitis around the eyes or mouth, seborrhoeic dermatitis, stasis dermatitis",
@@ -63,6 +72,8 @@ CONDITIONS = {
                   "For swelling and skin changes on the lower legs, raising your legs when sitting can help."],
     },
     "fungal": {
+        "harm": "mild",
+        "harm_reason": "Not dangerous, but it spreads easily and needs the full course of treatment to clear.",
         "name": "Fungal infection (ringworm)",
         "about": "A common skin infection caused by fungi. Despite the name, ringworm has nothing to do with worms.",
         "examples": "ringworm on the body (tinea corporis), on the face (tinea faciei), athlete's foot, candida",
@@ -75,6 +86,8 @@ CONDITIONS = {
                   "Avoid using steroid creams on it unless a doctor advises, as they can make it spread."],
     },
     "granuloma": {
+        "harm": "moderate",
+        "harm_reason": "Often harmless in the skin, but sometimes linked to conditions elsewhere in the body.",
         "name": "Granulomatous skin condition",
         "about": "Conditions where the immune system forms small clusters of cells in the skin, giving firm bumps or ring-shaped patches.",
         "examples": "granuloma annulare, sarcoidosis, necrobiosis lipoidica",
@@ -86,6 +99,8 @@ CONDITIONS = {
                   "Protect the skin from injury and the sun."],
     },
     "hair": {
+        "harm": "mild",
+        "harm_reason": "Not harmful to health, though it can affect how people feel.",
         "name": "Hair loss or hair condition",
         "about": "Thinning or patchy hair loss. Common causes include inherited pattern balding, patchy hair loss (alopecia areata) and hair pulling (trichotillomania).",
         "examples": "pattern balding, alopecia areata, trichotillomania",
@@ -98,6 +113,8 @@ CONDITIONS = {
                   "Sudden or patchy hair loss is worth mentioning to a doctor."],
     },
     "healthy": {
+        "harm": "harmless",
+        "harm_reason": "No condition was found.",
         "name": "Healthy skin",
         "about": "No skin condition was found in this image.",
         "examples": "",
@@ -110,6 +127,8 @@ CONDITIONS = {
                   "If you were checking a particular spot, try a close-up image with just that spot in the centre."],
     },
     "herpes": {
+        "harm": "moderate",
+        "harm_reason": "Usually heals by itself, but shingles near the eye or in someone with a weak immune system needs prompt care.",
         "name": "Herpes, shingles or chickenpox",
         "about": "Viral infections that cause groups of small blisters: cold sores (herpes simplex), shingles (herpes zoster) and chickenpox.",
         "examples": "cold sores / fever blisters, shingles, chickenpox",
@@ -121,6 +140,8 @@ CONDITIONS = {
                   "Shingles near the eye, or a rash in someone who is pregnant or has a weak immune system, are good reasons to get help promptly."],
     },
     "leprosy": {
+        "harm": "serious",
+        "harm_reason": "Can damage nerves permanently if untreated, but it is completely curable with free treatment.",
         "name": "Leprosy (Hansen's disease)",
         "about": "A bacterial infection that affects the skin and nerves. It is curable with free treatment in many countries, and once treatment starts the person is no longer infectious.",
         "examples": "tuberculoid, borderline and lepromatous leprosy, nodular or histoid leprosy",
@@ -133,6 +154,8 @@ CONDITIONS = {
                   "There is no need for fear or isolation: leprosy is curable."],
     },
     "pigment": {
+        "harm": "mild",
+        "harm_reason": "Usually harmless to health; sun protection matters.",
         "name": "Sun-related or pigment change",
         "about": "Changes in skin colour, such as white patches (vitiligo), skin reactions to sunlight, sun damage, or darker patches.",
         "examples": "vitiligo, sun (UV) allergy, sun damage, melasma, pigment changes",
@@ -144,6 +167,8 @@ CONDITIONS = {
                   "Take photos to track changes over time."],
     },
     "lupus": {
+        "harm": "serious",
+        "harm_reason": "Can affect organs as well as skin, so it needs a doctor's care.",
         "name": "Lupus or connective-tissue condition",
         "about": "Conditions where the immune system affects the skin and sometimes other organs, such as lupus, scleroderma and dermatomyositis.",
         "examples": "lupus, scleroderma, dermatomyositis",
@@ -155,6 +180,8 @@ CONDITIONS = {
                   "Note when the rash appears and what makes it worse."],
     },
     "melanoma": {
+        "harm": "serious",
+        "harm_reason": "A skin cancer that can spread if not treated; found early it is very treatable.",
         "name": "Melanoma",
         "about": "A type of skin cancer that starts in the cells that give skin its colour. When found early it is very treatable.",
         "examples": "melanoma, lentigo maligna",
@@ -167,6 +194,8 @@ CONDITIONS = {
                   "Protect it from the sun and use SPF 30+ sunscreen."],
     },
     "mole": {
+        "harm": "harmless",
+        "harm_reason": "Ordinary moles and birthmarks are harmless; changes are worth checking.",
         "name": "Mole or birthmark",
         "about": "Ordinary moles and birthmarks, including large moles present from birth. Most are harmless.",
         "examples": "moles (nevi), congenital nevus, Becker's nevus, nevus of Ota",
@@ -178,6 +207,8 @@ CONDITIONS = {
                   "Use sunscreen and avoid sunburn."],
     },
     "nail": {
+        "harm": "mild",
+        "harm_reason": "Usually not dangerous, though some nail problems need treatment to clear.",
         "name": "Nail condition",
         "about": "Changes in the nails, such as fungal nail infection, thickened curved nails (onychogryphosis or 'claw nail'), pitting, or damaged, ridged nails (nail dystrophy).",
         "examples": "fungal nail, claw nail, nail dystrophy, paronychia, pitting",
@@ -190,6 +221,8 @@ CONDITIONS = {
                   "A new dark line in a nail is a good reason to see a doctor."],
     },
     "psoriasis": {
+        "harm": "moderate",
+        "harm_reason": "Not contagious or dangerous, but long-lasting and best managed with a doctor.",
         "name": "Psoriasis, lichen planus or similar",
         "about": "Long-term inflammatory conditions. Psoriasis causes raised scaly patches; lichen planus causes itchy purplish bumps or white lacy patches inside the mouth.",
         "examples": "psoriasis, lichen planus (including oral lichen planus), pityriasis rosea",
@@ -202,6 +235,8 @@ CONDITIONS = {
                   "Mention it to a doctor if it is widespread or affects your joints or mouth."],
     },
     "infestation": {
+        "harm": "mild",
+        "harm_reason": "Very itchy and can spread to others, but not dangerous and easily treated.",
         "name": "Scabies, bites or infestation",
         "about": "Skin reactions to tiny mites (scabies), insect bites (including papular urticaria from mosquito or flea bites), lice or parasites.",
         "examples": "scabies, insect bite reactions, papular urticaria, head lice, larva migrans",
@@ -214,6 +249,8 @@ CONDITIONS = {
                   "Wash bedding and clothes in hot water."],
     },
     "cancer": {
+        "harm": "serious",
+        "harm_reason": "These cancers grow slowly and rarely spread, but they need treatment.",
         "name": "Skin cancer or pre-cancer",
         "about": "Common skin cancers such as basal cell carcinoma and squamous cell carcinoma, and rough sun-damage patches (actinic keratosis) that can turn into them. Most are very treatable.",
         "examples": "basal cell carcinoma, squamous cell carcinoma, actinic keratosis",
@@ -225,6 +262,8 @@ CONDITIONS = {
                   "Protect your skin from the sun: SPF 30+, a hat and shade around midday."],
     },
     "benign": {
+        "harm": "harmless",
+        "harm_reason": "Harmless growths; treatment is only needed if they bother you.",
         "name": "Benign growth, cyst or scar",
         "about": "Harmless growths such as skin tags, seborrhoeic keratoses, syringomas, small cysts, harmless skin tumours, and raised scars (keloids, hypertrophic scars).",
         "examples": "skin tags, seborrhoeic keratosis, syringoma, mucous cyst, trichoblastoma, dermatofibroma, keloid / hypertrophic scar",
@@ -236,6 +275,8 @@ CONDITIONS = {
                   "A growth that bleeds, grows quickly or looks different from others is worth showing to a doctor."],
     },
     "systemic": {
+        "harm": "moderate",
+        "harm_reason": "The skin is a sign of something elsewhere in the body that should be checked.",
         "name": "Skin sign of a nutritional or body-wide condition",
         "about": "Skin changes that reflect something elsewhere in the body, such as a vitamin deficiency (for example pellagra from lack of niacin), zinc deficiency, diabetes or hormone changes.",
         "examples": "pellagra, zinc deficiency, acanthosis nigricans, porphyria",
@@ -247,6 +288,8 @@ CONDITIONS = {
                   "Protect affected skin from the sun."],
     },
     "urticaria": {
+        "harm": "mild",
+        "harm_reason": "Usually harmless and short-lived; swelling of the lips or throat is an emergency.",
         "name": "Hives (urticaria)",
         "about": "Raised, itchy welts that come and go, often due to an allergy, infection, medicine, heat or pressure. Often no cause is found.",
         "examples": "acute urticaria, allergic hives",
@@ -258,6 +301,8 @@ CONDITIONS = {
                   "Swelling of the lips, tongue or throat, or difficulty breathing, needs emergency help straight away."],
     },
     "vascular": {
+        "harm": "harmless",
+        "harm_reason": "Usually harmless; some bleed easily when knocked.",
         "name": "Vascular lesion",
         "about": "Spots or birthmarks made of blood vessels, such as cherry spots, pyogenic granulomas, port-wine stains and spider veins.",
         "examples": "cherry angioma, pyogenic granuloma, port-wine stain, telangiectasia",
@@ -268,6 +313,8 @@ CONDITIONS = {
                   "Keep an eye on its size over time."],
     },
     "rash": {
+        "harm": "moderate",
+        "harm_reason": "Many settle by themselves, but reactions to medicines can become serious.",
         "name": "Drug reaction, viral rash or vasculitis",
         "about": "Widespread rashes from reactions to medicines, viral infections (such as measles or hand, foot and mouth disease), or inflamed blood vessels (vasculitis).",
         "examples": "drug eruption, measles, hand-foot-and-mouth disease, erythema multiforme, vasculitis",
@@ -279,6 +326,8 @@ CONDITIONS = {
                   "Blistering, peeling skin, mouth sores or feeling very unwell are reasons to get help promptly."],
     },
     "warts": {
+        "harm": "mild",
+        "harm_reason": "Harmless, but they can spread to other skin or other people.",
         "name": "Warts or molluscum",
         "about": "Common, harmless skin growths caused by viruses.",
         "examples": "common warts, plantar warts, molluscum contagiosum",
