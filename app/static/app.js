@@ -197,9 +197,7 @@ async function check(blob, truth) {
   $("placeholder").hidden = true; $("result").hidden = true; $("analysing").hidden = false;
   setStep(2);
   try {
-    const withGemini = state.info?.gemini_available && $("gemini-check").checked;
-    $("gemini-step").hidden = !withGemini;
-    const [data] = await Promise.all([api("/api/predict" + (withGemini ? "?gemini=1" : ""), { body: blob }), showProgress(id)]);
+    const [data] = await Promise.all([api("/api/predict", { body: blob }), showProgress(id)]);
     if (id !== state.requestId) return;
     $("analysing").hidden = true;
     if (data.results.rejected) renderRejected(); else render(data.results, truth);
@@ -257,13 +255,45 @@ function estimatedAccuracy(r, g) {
   return band ? band.accuracy : r.probs[0].p;
 }
 
-function accuracyChip(acc) {
+function accuracyChip(acc, label = "Estimated accuracy") {
   const level = acc >= 0.8 ? ["High", 3] : acc >= 0.5 ? ["Moderate", 2] : ["Low", 1];
   const meter = el("span", { class: "meter", "aria-hidden": "true" }, ...[1, 2, 3].map((i) => el("span", { class: i <= level[1] ? "on" : "" })));
-  return el("span", { class: "chip neutral" }, meter, `Estimated accuracy: ${whole(acc)}`);
+  return el("span", { class: "chip neutral" }, meter, `${label}: ${whole(acc)}`);
+}
+
+// A condition outside the 23 groups the SkinCheck model learned: Gemini's answer is the one shown
+function renderOutside(r, g, truth) {
+  const concern = g.harm === "moderate" || g.harm === "serious";
+  const cap = (t) => t.charAt(0).toUpperCase() + t.slice(1);
+  $("result").replaceChildren(...[
+    el("p", { class: "match-label", text: "Your image most closely matches" }),
+    el("h3", { class: "match-name", text: cap(g.condition) }),
+    el("div", { class: "chips" },
+      concern ? el("span", { class: "chip info", text: "Worth discussing with a professional" }) : el("span", { class: "chip ok", text: "Appears less concerning" }),
+      accuracyChip(g.confidence, "AI confidence")),
+    el("p", { class: "muted", text: "This doesn't belong to the 23 groups our SkinCheck AI was trained on, so this answer comes from Google's Gemini AI." }),
+    truth ? el("p", { class: "truth", text: `The confirmed answer for this example is ${className(truth)}.` }) : null,
+    el("div", { class: "block" }, el("h3", { text: "What this means" }), el("p", { text: g.description })),
+    harmBlock(g.harm, g.harm_reason),
+    el("div", { class: "next " + (concern ? "info" : "ok") },
+      el("h3", { text: concern ? CONSIDER : "This result appears less concerning, but changes in your skin should still be monitored" }),
+      concern ? el("p", { text: SIMILAR }) : null,
+      el("p", {}, el("b", { text: "What you can do now" })),
+      el("ol", { class: "steps" },
+        el("li", { text: "Take a clear photo now, so you can notice any changes." }),
+        el("li", { text: "Keep the area clean and avoid picking or scratching it." }),
+        el("li", { text: concern ? "Show it to a doctor or pharmacist, who can examine it properly." : "If it doesn't improve in a few weeks, or it worries you, a doctor or pharmacist can help." }))),
+    el("div", { class: "block" }, el("h3", { text: "When to talk to a doctor" }),
+      el("p", { text: "Whatever the result, it's worth talking to a doctor if a skin problem:" }),
+      el("ul", { class: "signs" }, ...state.info.urgent_signs.map((s) => el("li", { text: s.replace(/^It /, "") })))),
+    el("p", { class: "disclaimer" }, el("b", { text: "This is an AI-based prediction, not a medical diagnosis. " }),
+      "An AI prediction is only one piece of information. You're always welcome to ask a doctor about any skin concern."),
+    anotherImageButton(),
+  ].filter(Boolean));
 }
 
 function render(r, truth) {
+  if (r.gemini?.outside_groups) return renderOutside(r, r.gemini, truth);
   const m = state.info, g = r.gemini && !r.gemini.error ? r.gemini : null;
   const acc = estimatedAccuracy(r, g);
   if (g) { r = { ...r, top: g.combined_top, probs: g.combined }; }  // one combined answer
@@ -383,7 +413,8 @@ function renderExamples(info) {
     state.info = info;
     renderAccuracy(info);
     renderExamples(info);
-    $("gemini-opt").hidden = !info.gemini_available;
+    for (const id of ["gemini-info", "gemini-signup-note", "gemini-step"]) $(id).hidden = !info.gemini_available;
+    $("local-note").textContent = info.gemini_available ? "Your image is not saved." : "Your image is checked on this computer and is not saved.";
     setMode("signup");
     setUser(me.user);
   } catch {

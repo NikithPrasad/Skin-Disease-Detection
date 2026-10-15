@@ -4,14 +4,14 @@ A calm, simple local website that helps people understand a skin concern. Upload
 skin, nails or scalp and an **EfficientNet-B0** model gives an AI-based indication of which of
 **23 groups of common skin, hair and nail conditions** (or healthy skin) it most closely matches,
 explained in plain language with practical next steps. Runs on any laptop with no GPU, no internet
-and no API key; an optional second opinion from Google Gemini can be switched on per photo.
+and no API key; with a Gemini API key it also gets a second opinion from Google Gemini.
 
 **This is an awareness tool, not a medical diagnosis.** It never tells anyone they have a disease, and it
 never decides for them whether to see a doctor.
 
 **Images are never saved.** Each upload is analysed in memory on the same computer and discarded straight
-after; nothing is written to disk or stored in a database. Nothing is sent anywhere unless the person
-ticks the optional Gemini second opinion for that photo (see below).
+after; nothing is written to disk or stored in a database. Photos that look like skin are also sent to
+Google Gemini for a second opinion (see below); nothing is sent anywhere else.
 
 The model was chosen from a fair comparison of four architectures:
 [Skin-Disease-Model-Comparison](https://github.com/NikithPrasad/Skin-Disease-Model-Comparison).
@@ -48,38 +48,46 @@ leprosy, pellagra, acne, ringworm, shingles, vitiligo, nail and hair problems, m
 | Warts and molluscum | warts, molluscum contagiosum | |
 | Healthy skin | | |
 
-Two of the teacher's examples have no matching training data in any public dataset we found: a foot
-callus, and a few uncaptioned photos that were only identifiable as "a rash". The model will still give
-its closest group for them.
+One of the teacher's examples, a foot callus, has no matching training data in any public dataset we
+found; for conditions like this Gemini's answer is shown (see below).
 
 Each result shows the closest group, the top answers with their percentages, what the group means,
 how it is usually managed and what the person can do now.
 
-## Optional second opinion from Google Gemini
+## Second opinion from Google Gemini
 
-Each check can also ask **Google Gemini** (a general AI that can read images). It is **off unless the
-person ticks the box for that photo**, because the photo is then sent over the internet to Google (Google's
-terms apply). Photos the photo check turns away are never sent. Gemini is asked independently (it is not
-told the model's answer) and must reply in a fixed format: one of the same 24 groups, the most likely
-specific condition, a plain-language description, how harmful it usually is, and its confidence.
+Every photo that passes the photo check is also sent to **Google Gemini** (a general AI that can read
+images), and the page says so before anyone signs up or uploads (Google's terms apply). Photos the photo
+check turns away are never sent. Gemini is asked independently (it is not told the model's answer) and
+replies in a fixed format: one of the same 24 groups, or **"other"** when the condition belongs to none of
+them, plus the most likely specific condition, a plain-language description, how harmful it usually is
+and its confidence.
 
-The person sees **one combined answer** with **one estimated-accuracy figure**, not two competing opinions.
+- **A condition in one of the 24 groups**: the person sees **one answer** with **one estimated-accuracy
+  figure**, plus Gemini's description of the photo and the name of the most likely specific condition.
+- **A condition outside the groups** (for example a callus, which none of the training datasets covers):
+  the SkinCheck model was never trained on it, so Gemini's answer is shown instead, with its description,
+  harmfulness and general next steps, and a note saying the answer comes from Gemini.
+
 Measured on 72 test photos (3 per group) the AI never trained on, with `gemini-flash-lite-latest`:
 
 | | Right answer |
 |---|---|
 | SkinCheck model alone | 71% |
-| Gemini alone | 47% |
-| Combined (model + 0.1 x Gemini's confidence on its group; weight chosen on 72 validation photos) | 69% |
-| Combined answer when both point to the same group (half of the photos) | 86% |
-| Combined answer when they point to different groups | 53% |
+| Gemini alone | 42% |
+| What the site shows | 71% |
+| ... when the model and Gemini point to the same group (42% of photos) | 90% |
+| ... when they point to different groups | 59% |
+| Photos Gemini wrongly called "other" | 1% (1 of 72) |
 
-So Gemini does not make the answer more accurate on its own: the specialised model is better at these 24
-groups (the full Gemini Flash scored similarly, 8 of 17 photos, before its free daily limit of 20 requests
-ran out). What it adds is a reliable sign of how much to trust each answer (the "estimated accuracy"
-shown with the result), the name of the most likely specific condition and a description of the photo.
-Without Gemini, the estimated accuracy comes from the model's own confidence, measured on validation
-photos (top answer right 90% of the time at 50%+, 53% at 30 to 50%, 30% below 30%).
+The specialised model is more accurate than Gemini on these 24 groups (the full Gemini Flash scored
+similarly to Flash-Lite, 8 of 17, before its free limit of 20 requests a day ran out), and the best
+weight for mixing Gemini into the ranking, chosen on 72 validation photos, was 0. So the answer comes from
+the model; Gemini adds the estimated accuracy shown with each result (how often answers were right when
+the two pointed the same way or not), the specific condition, the description, and answers for
+conditions outside the 24 groups. Without a Gemini key (or if Gemini is busy) the site uses the model
+alone and the estimated accuracy comes from the model's own confidence, measured on validation photos
+(right 90% of the time at 50%+, 53% at 30 to 50%, 30% below 30%).
 
 **Harmfulness**: every result shows how harmful the condition usually is on a 4-step scale (harmless,
 mild, moderate, serious) with a one-line reason; if Gemini rates the photo as more serious than usual for
@@ -87,7 +95,8 @@ that group, the more serious rating is shown.
 
 **The API key** is never in this repository: `setup.bat` asks for it once and saves it in
 `app/data/gemini_api_key.txt` (excluded from git; a test checks this), or set the `GEMINI_API_KEY`
-environment variable. Without a key the site works exactly as before, with the Gemini box hidden.
+environment variable. Without a key the site still works, using the model alone and keeping every photo
+on the computer.
 Evaluation script: `src/gemini_eval.py` in the comparison project.
 
 ## Design
@@ -240,7 +249,7 @@ app/server.py       web server (routes, cookies, security headers)
 app/auth.py         accounts and sessions (SQLite)
 app/predictor.py    photo check, classification of an in-memory image, Grad-CAM, melanoma warning
 app/conditions.py   plain-language information, harmfulness and next steps for each of the 24 groups
-app/gemini.py       optional Gemini second opinion (standard-library HTTPS call) and the combination rule
+app/gemini.py       Gemini second opinion (standard-library HTTPS call) and the combination rule
 app/models/         model.pt (24-group EfficientNet-B0, float16), general.pt (ImageNet EfficientNet-B0 for
                     the photo check), ood.npz (photo-check statistics), meta.json (scores, thresholds)
 app/static/         the web page, sample photos, confusion matrix

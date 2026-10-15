@@ -1,14 +1,15 @@
-"""Optional second opinion from Google Gemini.
+"""Second opinion from Google Gemini, for every photo that passes the photo check.
 
-Only used when the person ticks "Also ask Gemini" for that check: the photo is then sent to
-Google's Gemini API (over HTTPS, from this computer) and is no longer only on this computer.
-Nothing is stored here either way.
+The photo is sent to Google's Gemini API (over HTTPS, from this computer); the page tells people this
+before they upload. Nothing is stored on this computer either way.
 
 The API key is read from the GEMINI_API_KEY environment variable or from app/data/gemini_api_key.txt
 (app/data/ is excluded from git, so the key is never published). Without a key the feature is off.
 
 Gemini is asked independently (it is NOT told what the local model said, so it cannot simply agree)
-and must answer in a fixed JSON shape: one of the same 24 groups plus its own description.
+and must answer in a fixed JSON shape: one of the same 24 groups, or "other" when the photo shows a
+condition outside all of them (the local model was never trained on those, so Gemini's answer is shown
+instead), plus its own description.
 """
 import base64
 import io
@@ -36,6 +37,8 @@ PROMPT = """You are helping a student skin-screening tool. Look at this photo of
 
 1. Pick the ONE group from this list that the photo most closely resembles (use the key):
 {groups}
+   If the condition clearly belongs to none of these groups (for example a callus, corn, burn, wound,
+   insect sting or a condition not listed), use "other". Prefer a listed group whenever one fits.
 
 2. Name the single most likely specific condition (for example "tinea corporis" or "nodular leprosy").
 3. Write a short, calm, plain-language description (2-3 sentences) of what you see and what the
@@ -51,7 +54,7 @@ If the photo does not show skin, hair or nails at all, set group to "not_skin"."
 SCHEMA = {
     "type": "OBJECT",
     "properties": {
-        "group": {"type": "STRING", "enum": list(CONDITIONS) + ["not_skin"]},
+        "group": {"type": "STRING", "enum": list(CONDITIONS) + ["other", "not_skin"]},
         "condition": {"type": "STRING"},
         "description": {"type": "STRING"},
         "harm": {"type": "STRING", "enum": HARM_LEVELS},
@@ -109,7 +112,7 @@ def ask(jpeg_bytes, key=None, model=MODEL):
     try:
         text = data["candidates"][0]["content"]["parts"][0]["text"]
         answer = json.loads(text)
-        assert answer["group"] in CONDITIONS or answer["group"] == "not_skin"
+        assert answer["group"] in CONDITIONS or answer["group"] in ("other", "not_skin")
         answer["confidence"] = min(1.0, max(0.0, float(answer["confidence"])))
         assert answer["harm"] in HARM_LEVELS
     except (KeyError, IndexError, ValueError, AssertionError, TypeError):

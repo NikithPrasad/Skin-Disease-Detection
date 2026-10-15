@@ -134,7 +134,13 @@ class UserStoreTests(unittest.TestCase):
 class ServerTests(unittest.TestCase):
     predictor = FakePredictor()
 
+    gemini_on = False  # server tests never reach the internet; GeminiTests switches on a fake
+
     def setUp(self):
+        import gemini
+        patcher = mock.patch.object(gemini, "available", lambda: self.gemini_on)
+        patcher.start()
+        self.addCleanup(patcher.stop)
         self.tmp = tempfile.TemporaryDirectory()
         self.store = UserStore(Path(self.tmp.name) / "users.db")
         self.server = make_server(self.predictor, self.store, port=0)
@@ -256,7 +262,10 @@ class ServerTests(unittest.TestCase):
 
 
 class GeminiTests(ServerTests):
-    """The optional Gemini second opinion, with Gemini itself replaced by a fake (no internet)."""
+    """The Gemini second opinion, with Gemini itself replaced by a fake (no internet)."""
+    gemini_on = True
+    answer = {"group": "melanoma", "condition": "melanoma", "description": "d", "harm": "serious",
+              "harm_reason": "r", "confidence": 0.9, "model": "fake"}
 
     def setUp(self):
         super().setUp()
@@ -264,29 +273,47 @@ class GeminiTests(ServerTests):
         self.calls = []
         def fake_ask(jpeg):
             self.calls.append(jpeg)
-            return {"group": "melanoma", "condition": "melanoma", "description": "d", "harm": "serious",
-                    "harm_reason": "r", "confidence": 0.9, "model": "fake"}
+            return dict(self.answer)
         patcher = mock.patch.object(server.Handler, "ask_gemini", staticmethod(fake_ask))
         patcher.start()
         self.addCleanup(patcher.stop)
 
-    def test_gemini_only_when_asked(self):
+    def test_no_gemini_without_a_key(self):
+        self.gemini_on = False
         cookie = self.signup()
         res, data = self.request("POST", "/api/predict", png_with_marker("x"), cookie=cookie)
         self.assertEqual(res.status, 200)
         self.assertNotIn("gemini", data["results"])
-        self.assertEqual(self.calls, [])  # the photo was not sent anywhere
+        self.assertEqual(self.calls, [])
 
     def test_gemini_second_opinion_is_combined(self):
         cookie = self.signup()
-        res, data = self.request("POST", "/api/predict?gemini=1", png_with_marker("x"), cookie=cookie)
+        res, data = self.request("POST", "/api/predict", png_with_marker("x"), cookie=cookie)
         self.assertEqual(res.status, 200)
         g = data["results"]["gemini"]
         self.assertEqual(len(self.calls), 1)
         self.assertEqual(self.calls[0][:2], bytes([0xFF, 0xD8]))  # re-encoded as JPEG (drops metadata)
         self.assertEqual(g["combined_top"], g["combined"][0]["code"])
         self.assertFalse(g["agree"])  # fake model said acne, fake Gemini melanoma
+        self.assertFalse(g["outside_groups"])
         self.assertAlmostEqual(sum(p["p"] for p in g["combined"]), 1.0, places=2)
+
+    def test_condition_outside_the_groups(self):
+        self.answer = {**self.answer, "group": "other", "condition": "callus", "harm": "mild"}
+        cookie = self.signup()
+        g = self.request("POST", "/api/predict", png_with_marker("x"), cookie=cookie)[1]["results"]["gemini"]
+        self.assertTrue(g["outside_groups"])
+        self.assertEqual(g["condition"], "callus")
+        self.assertEqual(g["combined_top"], "acne")  # the model's ranking is left unchanged
+
+    def test_rejected_photo_is_never_sent(self):
+        rejecting = mock.Mock(meta=FakePredictor.meta, device=FakePredictor.device)
+        rejecting.predict.return_value = {"rejected": True, "ms": 0.1}
+        with mock.patch.object(self.server.RequestHandlerClass, "predictor", rejecting):
+            cookie = self.signup()
+            res, data = self.request("POST", "/api/predict", png_with_marker("x"), cookie=cookie)
+        self.assertEqual(res.status, 200)
+        self.assertEqual(self.calls, [])
 
     def test_gemini_failure_still_gives_model_result(self):
         import gemini, server
@@ -294,7 +321,7 @@ class GeminiTests(ServerTests):
             raise gemini.GeminiError("offline")
         with mock.patch.object(server.Handler, "ask_gemini", staticmethod(failing)):
             cookie = self.signup()
-            res, data = self.request("POST", "/api/predict?gemini=1", png_with_marker("x"), cookie=cookie)
+            res, data = self.request("POST", "/api/predict", png_with_marker("x"), cookie=cookie)
         self.assertEqual(res.status, 200)
         self.assertEqual(data["results"]["top"], "acne")
         self.assertEqual(data["results"]["gemini"], {"error": "offline"})

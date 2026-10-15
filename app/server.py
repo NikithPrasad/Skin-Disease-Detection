@@ -7,13 +7,13 @@ Runs on CPU by default, so no GPU, internet connection or API key is needed.
 
 Privacy: uploaded photos are only held in memory while the models look at them and are
 discarded right after. They are never written to disk, never put in the database and never
-logged. They are sent nowhere, except to Google's Gemini API when the person ticks the optional
-second opinion for that photo (see gemini.py). The database (app/data/users.db) holds only usernames,
+logged. Photos that pass the photo check are also sent to Google's Gemini API for a second opinion
+(see gemini.py); the page says so before anyone uploads. The database (app/data/users.db) holds only usernames,
 password hashes and login sessions.
 """
 import argparse
 import json
-from urllib.parse import parse_qs, urlsplit
+from urllib.parse import urlsplit
 import webbrowser
 from http import cookies
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
@@ -128,9 +128,7 @@ class Handler(SimpleHTTPRequestHandler):
             "/api/signup": self.signup, "/api/login": self.login, "/api/logout": self.logout,
             "/api/delete-account": self.delete_account, "/api/predict": self.predict,
         }
-        url = urlsplit(self.path)
-        self.query = parse_qs(url.query)
-        handler = routes.get(url.path)
+        handler = routes.get(urlsplit(self.path).path)
         if handler is None:
             return self.send_json({"error": "Not found."}, 404)
         return handler()
@@ -185,9 +183,9 @@ class Handler(SimpleHTTPRequestHandler):
             return self.send_json({"error": "Please upload an image under 20 MB."}, 400)
         try:
             results = self.predictor.predict(image)
-            # Second opinion only if the person asked for it for this photo, and only for photos
-            # that passed the photo check. The photo then goes to Google's Gemini API.
-            if self.query.get("gemini") == ["1"] and not results.get("rejected"):
+            # Second opinion from Google Gemini for every photo that passed the photo check (the page
+            # tells people before they upload). Skipped when no API key is set up on this computer.
+            if gemini.available() and not results.get("rejected"):
                 results["gemini"] = self.second_opinion(image, results)
         except InvalidImage:
             return self.send_json({"error": "That file isn't an image this app can read. Try a JPG or PNG."}, 400)
@@ -204,7 +202,10 @@ class Handler(SimpleHTTPRequestHandler):
         weight = self.predictor.meta.get("gemini", {}).get("weight", 0.5)
         combined = gemini.combine(results["probs"], answer, weight)
         return {**answer, "combined": combined[:5], "combined_top": combined[0]["code"],
-                "agree": answer["group"] == results["top"]}
+                "agree": answer["group"] == results["top"],
+                # A condition outside the 24 groups: the local model was never trained on it,
+                # so Gemini's own answer is the one shown
+                "outside_groups": answer["group"] == "other"}
 
 
 def make_server(predictor, users, port=8000, host="127.0.0.1"):

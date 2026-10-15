@@ -40,7 +40,7 @@
           <a class="btn primary big" href="#check" id="hero-cta">Check a skin concern</a>
           <a class="text-link" href="#how">See how it works</a>
         </div>
-        <p class="assure-line">Your image is checked on this computer and never saved. A second opinion from Google Gemini is available if you choose it.</p>
+        <p class="assure-line">Your image is checked by our AI and by Google Gemini, and is never saved here.</p>
       </div>
 
       <figure class="hero-photo">
@@ -53,7 +53,7 @@
   <section class="wrap reassure" aria-label="Our promises">
     <div><h2>You're in control</h2><p>You choose what to upload, and you can remove an image or delete your account at any time.</p></div>
     <div><h2>Results in simple language</h2><p>No medical jargon. Every result explains what it means and what you can do next.</p></div>
-    <div><h2>Your privacy matters</h2><p>Images are checked on this computer and never saved. Nothing goes online unless you choose the Gemini second opinion.</p></div>
+    <div><h2>Your privacy matters</h2><p>Images are never saved here. They are checked on this computer and by Google's Gemini AI, and nothing else.</p></div>
     <div><h2>One piece of information</h2><p>An AI prediction can help you prepare, but only a healthcare professional can diagnose.</p></div>
   </section>
 
@@ -125,6 +125,7 @@
             <li>A clear photo works best, with the affected area in the middle and filling most of the picture.</li>
             <li>Use good, even light and keep the image in focus.</li>
             <li>If you can, crop out your eyes, tattoos or anything else that could identify you.</li>
+            <li id="gemini-signup-note" hidden>Images are checked on this computer and also by Google's Gemini AI over the internet, to give a fuller answer.</li>
           </ul>
           <p class="muted">The reliability figures and privacy details below are open to everyone, no account needed.</p>
         </div>
@@ -145,11 +146,7 @@
               <button class="btn ghost big" id="clear" type="button" hidden>Remove image</button>
             </div>
             <p class="small muted" id="local-note">Your image is checked on this computer and is not saved.</p>
-            <label class="consent" id="gemini-opt" hidden>
-              <input type="checkbox" id="gemini-check">
-              <span><b>Also ask Google Gemini for a second opinion</b>
-                <span class="small muted">For this check your photo is also sent over the internet to Google's Gemini AI. Google's terms apply and it may be kept by Google. Leave this unticked to keep your photo on this computer.</span></span>
-            </label>
+            <p class="small muted gemini-info" id="gemini-info" hidden>To give a fuller answer, your image is also checked by Google's Gemini AI over the internet. Google's terms apply.</p>
             <details class="examples-box">
               <summary>No image? Try an example</summary>
               <p class="small muted">These are example photos from public research datasets. Choosing one shows that image.</p>
@@ -169,7 +166,7 @@
               <ul class="progress-list">
                 <li data-p="0">Checking it's a photo of skin</li>
                 <li data-p="1">Analysing it with an AI model trained on about 36,000 photos</li>
-                <li data-p="2" id="gemini-step" hidden>Asking Google Gemini for a second opinion</li>
+                <li data-p="2" id="gemini-step" hidden>Getting a second opinion from Google Gemini</li>
                 <li data-p="3">Preparing a simple explanation</li>
               </ul>
             </div>
@@ -251,7 +248,7 @@
       <h2 class="section-title" id="privacy-title">Your privacy</h2>
       <p class="lede narrow">Here is exactly what happens to your image and your account.</p>
       <div class="privacy-grid">
-        <div class="panel"><h3>Your image stays on this computer</h3><p>The AI runs on this computer. Your image is not sent over the internet, and there is no tracking. The one exception is the optional Gemini second opinion: only if you tick that box, that photo is also sent to Google's Gemini AI, where Google's terms apply.</p></div>
+        <div class="panel"><h3>Where your image goes</h3><p>The SkinCheck AI runs on this computer, and there is no tracking. To give a fuller answer, each image that looks like skin is also sent securely to Google's Gemini AI, where Google's terms apply. Images that don't look like skin are never sent.</p></div>
         <div class="panel"><h3>Your image is not saved</h3><p>It is held in memory only while it is being analysed, then discarded. It is never written to disk or stored in a database, and it is never used to train the AI. Automated tests check this.</p></div>
         <div class="panel"><h3>Keep images anonymous</h3><p>If you can, crop out your eyes, tattoos, jewellery or anything else that could identify you. A photo of just the affected area works best anyway.</p></div>
         <div class="panel"><h3>Your account</h3><p>We store only your username, a protected (hashed) password and your sign-in session, all on this computer.</p>

@@ -156,17 +156,19 @@
  },
  "gemini": {
   "model": "gemini-flash-lite-latest",
-  "weight": 0.1,
+  "weight": 0,
   "test": {
    "n": 72,
    "model": 0.7083333333333334,
-   "gemini": 0.4722222222222222,
-   "combined": 0.6944444444444444,
-   "combined_top3": 0.7916666666666666,
+   "gemini": 0.4166666666666667,
+   "combined": 0.7083333333333334,
+   "other_rate": 0.013888888888888888,
+   "shown": 0.7083333333333334,
+   "combined_top3": 0.7777777777777778,
    "model_top3": 0.7777777777777778,
-   "agree": 0.5,
-   "accuracy_when_agree": 0.8611111111111112,
-   "accuracy_when_differ": 0.5277777777777778,
+   "agree": 0.4166666666666667,
+   "accuracy_when_agree": 0.9,
+   "accuracy_when_differ": 0.5853658536585366,
    "errors": 0
   },
   "per_group": 3
